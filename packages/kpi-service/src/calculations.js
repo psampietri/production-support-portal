@@ -1,5 +1,3 @@
-const config = require('./config');
-
 // --- Constants ---
 const SUPPORT_STATUS_CATEGORIES = {
   backlog: new Set(['Delivery Backlog', 'Under Technical Review', 'Ready for Delivery', 'Under Triage']),
@@ -20,9 +18,6 @@ const STATUS_MAP = new Map([
 ]);
 
 // --- General Purpose Calculation Helper ---
-/**
- * Calculates the weighted completion for a flat list of issues. Used by sprint progress.
- */
 function calculateNuancedCompletion(issues, tshirtFieldId) {
   let totalComplexityWeight = 0;
   let totalEffectiveCompletedWeight = 0;
@@ -49,31 +44,25 @@ function calculateNuancedCompletion(issues, tshirtFieldId) {
 }
 
 // --- Tree Calculation Logic ---
-
-/**
- * Internal, recursive helper to calculate stats for a single node.
- * This MUTATES the node by adding completion and issueCount properties.
- */
 function calculateNodeStats(node) {
+  const TSHIRT_FIELD_ID = process.env.JIRA_TSHIRT_FIELD_ID;
   if (!node || !node.fields) return { totalWeight: 0, completedWeight: 0, issueCount: 0 };
 
-  // Base case: If it's a leaf node, calculate based on its own status.
   if (!node.children || node.children.length === 0) {
-    const tShirtSize = node.fields[config.TSHIRT_FIELD_ID]?.value || 'N/A';
+    const tShirtSize = node.fields[TSHIRT_FIELD_ID]?.value || 'N/A';
     const complexityWeight = COMPLEXITY_MAP.get(tShirtSize) || 1;
     const statusPercentage = STATUS_MAP.get(node.fields.status?.name) || 0;
     
     node.completion = statusPercentage;
-    node.issueCount = 0; // A leaf node has 0 descendants.
+    node.issueCount = 0;
 
     return {
       totalWeight: complexityWeight,
       completedWeight: complexityWeight * statusPercentage,
-      issueCount: 1, // It counts as 1 for its parent's roll-up.
+      issueCount: 1,
     };
   }
 
-  // Recursive step: If it's a parent node, calculate based on its children.
   let totalChildWeight = 0;
   let totalChildCompletedWeight = 0;
   let totalChildIssueCount = 0;
@@ -88,9 +77,8 @@ function calculateNodeStats(node) {
   node.completion = totalChildWeight > 0 ? totalChildCompletedWeight / totalChildWeight : 0;
   node.issueCount = totalChildIssueCount;
   
-  const ownWeight = COMPLEXITY_MAP.get(node.fields[config.TSHIRT_FIELD_ID]?.value || 'N/A') || 1;
+  const ownWeight = COMPLEXITY_MAP.get(node.fields[TSHIRT_FIELD_ID]?.value || 'N/A') || 1;
   
-  // The return value for the recursion includes the node itself.
   return {
     totalWeight: ownWeight,
     completedWeight: ownWeight * node.completion,
@@ -98,24 +86,19 @@ function calculateNodeStats(node) {
   };
 }
 
-/**
- * Main function to process an array of raw issue trees.
- */
-function calculateInitiativeTrees(trees) {
+export function calculateInitiativeTrees(trees) {
     (trees || []).forEach(tree => calculateNodeStats(tree));
     return trees;
 }
 
-/**
- * Calculates the single overall completion percentage for the top-level KPI card.
- */
-function calculateOverallCompletion(processedTrees) {
+export function calculateOverallCompletion(processedTrees) {
     if (!processedTrees || processedTrees.length === 0) return 0;
+    const TSHIRT_FIELD_ID = process.env.JIRA_TSHIRT_FIELD_ID;
     let totalWeight = 0;
     let completedWeight = 0;
 
     processedTrees.forEach(tree => {
-        const tShirtSize = tree.fields[config.TSHIRT_FIELD_ID]?.value || 'N/A';
+        const tShirtSize = tree.fields[TSHIRT_FIELD_ID]?.value || 'N/A';
         const treeWeight = COMPLEXITY_MAP.get(tShirtSize) || 1;
         totalWeight += treeWeight;
         completedWeight += treeWeight * tree.completion;
@@ -124,28 +107,20 @@ function calculateOverallCompletion(processedTrees) {
     return totalWeight > 0 ? completedWeight / totalWeight : 0;
 }
 
-
 // --- Sprint Calculation Logic ---
-
-// --- Sprint Calculation Logic (REWRITTEN) ---
-function calculateSprintProgress(sprintReport, tshirtFieldId) {
+export function calculateSprintProgress(sprintReport, tshirtFieldId) {
   const { sprint, completedIssues, issuesNotCompleted, puntedIssues } = sprintReport;
   const sprintStartDate = new Date(sprint.startDate);
   const sprintEndDate = sprint.completeDate ? new Date(sprint.completeDate) : (sprint.endDate ? new Date(sprint.endDate) : null);
   const sprintIdString = sprint.id.toString();
 
-  // --- CORRECTED LOGIC: Use changelog to determine if an issue was added mid-sprint ---
   const isAddedDuringSprint = (issue) => {
     if (!issue || !issue.changelog) return false;
     for (const history of issue.changelog.histories) {
       const historyDate = new Date(history.created);
-      // Only look at changes that happened after the sprint started
       if (historyDate > sprintStartDate) {
         for (const item of history.items) {
-          // Find the change that added it to the current sprint
-          if (item.field === 'Sprint' && item.to === sprintIdString) {
-            return true;
-          }
+          if (item.field === 'Sprint' && item.to === sprintIdString) return true;
         }
       }
     }
@@ -156,18 +131,11 @@ function calculateSprintProgress(sprintReport, tshirtFieldId) {
   const addedDuringSprint = allIssuesInSprint.filter(isAddedDuringSprint);
   const initialCommitment = allIssuesInSprint.filter(issue => !addedDuringSprint.includes(issue));
 
-  // --- CORRECTED LOGIC: Use changelog to determine if an issue was carried over ---
   const isCarryOver = (issue) => {
-    // An issue cannot be a carry-over if it was added mid-sprint.
-    if (!issue || !issue.changelog || addedDuringSprint.includes(issue)) {
-      return false;
-    }
+    if (!issue || !issue.changelog || addedDuringSprint.includes(issue)) return false;
     for (const history of issue.changelog.histories) {
       for (const item of history.items) {
-        if (item.field === 'Sprint' && item.fromString) {
-          // If the 'from' value for a Sprint change exists, it was in a previous sprint.
-          return true;
-        }
+        if (item.field === 'Sprint' && item.fromString) return true;
       }
     }
     return false;
@@ -177,12 +145,7 @@ function calculateSprintProgress(sprintReport, tshirtFieldId) {
   const newPlannedIssues = initialCommitment.filter(issue => !isCarryOver(issue));
   
   const getWeightedStats = (issues) => {
-    if (!Array.isArray(issues)) {
-      throw new TypeError(`Invalid input: getWeightedStats expected an array but received ${typeof issues}`);
-    }
-    if (issues.length === 0) {
-      return { count: 0, weight: 0 };
-    }
+    if (!Array.isArray(issues) || issues.length === 0) return { count: 0, weight: 0 };
     const calc = calculateNuancedCompletion(issues, tshirtFieldId);
     return { count: calc.analyzedIssueCount, weight: calc.totalComplexityWeight };
   };
@@ -225,7 +188,7 @@ function calculateSprintProgress(sprintReport, tshirtFieldId) {
       completed: { ...completedStats, issues: completedIssues },
       notCompleted: { ...notCompletedStats, issues: issuesNotCompleted },
     },
-    issues: { // This is needed by the time breakdown calculation
+    issues: {
         carryOver: carryOverIssues,
         newPlanned: newPlannedIssues,
         addedDuringSprint: addedDuringSprint,
@@ -237,11 +200,8 @@ function calculateSprintProgress(sprintReport, tshirtFieldId) {
   };
 }
 
-
-
 // --- Other KPI Calculations ---
-
-function calculateSupportKpis(issues) {
+export function calculateSupportKpis(issues) {
   const kpis = { byType: {}, totals: { backlog: 0, inProgress: 0, done: 0, total: 0 } };
   
   (issues || []).forEach(issue => {
@@ -283,7 +243,8 @@ function calculateBusinessDays(startDt, endDt) {
     return Math.max(0, count);
 }
 
-function calculateTimeSpent(issues, sprintStartDate, sprintEndDate) {
+export function calculateTimeSpent(issues, sprintStartDate, sprintEndDate) {
+    const HOURS_PER_BUSINESS_DAY = parseInt(process.env.HOURS_PER_BUSINESS_DAY) || 8;
     let totalProductiveHours = 0;
     const detailedBreakdown = [];
 
@@ -313,8 +274,7 @@ function calculateTimeSpent(issues, sprintStartDate, sprintEndDate) {
 
                 if(effectiveStart < effectiveEnd){
                   const businessDays = calculateBusinessDays(effectiveStart, effectiveEnd);
-                  // Use the new configurable value for hours per day
-                  const hours = businessDays * config.HOURS_PER_BUSINESS_DAY;
+                  const hours = businessDays * HOURS_PER_BUSINESS_DAY;
                   ticketBreakdown.statusHours[change.from] = (ticketBreakdown.statusHours[change.from] || 0) + hours;
                   ticketBreakdown.totalHours += hours;
                 }
@@ -329,8 +289,7 @@ function calculateTimeSpent(issues, sprintStartDate, sprintEndDate) {
             
             if(effectiveStart < effectiveEnd){
               const businessDays = calculateBusinessDays(effectiveStart, effectiveEnd);
-              // Use the new configurable value for hours per day
-              const hours = businessDays * config.HOURS_PER_BUSINESS_DAY;
+              const hours = businessDays * HOURS_PER_BUSINESS_DAY;
               ticketBreakdown.statusHours[currentStatus] = (ticketBreakdown.statusHours[currentStatus] || 0) + hours;
               ticketBreakdown.totalHours += hours;
             }
@@ -345,12 +304,3 @@ function calculateTimeSpent(issues, sprintStartDate, sprintEndDate) {
     detailedBreakdown.sort((a, b) => a.key.localeCompare(b.key));
     return { totalHours: totalProductiveHours, breakdown: detailedBreakdown };
 }
-
-
-module.exports = {
-  calculateInitiativeTrees,
-  calculateOverallCompletion,
-  calculateSprintProgress,
-  calculateSupportKpis,
-  calculateTimeSpent,
-};

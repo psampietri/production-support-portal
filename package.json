@@ -6,15 +6,15 @@
     "packages/*"
   ],
   "scripts": {
-    "start:gateway": "npm start --workspace=api-gateway",
-    "start:kpi": "npm start --workspace=kpi-service",
-    "start:vulnerability": "npm start --workspace=vulnerability-service",
-    "start:jira": "npm start --workspace=jira-service",
-    "start:github": "npm start --workspace=github-service",
-    "start:user": "npm start --workspace=user-service",
-    "start:notification": "npm start --workspace=notification-service",
-    "start:onboarding": "npm start --workspace=onboarding-service",
-    "start:backend": "concurrently \"npm:start:*\""
+    "start:service:gateway": "npm start --workspace=api-gateway",
+    "start:service:kpi": "npm start --workspace=kpi-service",
+    "start:service:vulnerability": "npm start --workspace=vulnerability-service",
+    "start:service:jira": "npm start --workspace=jira-service",
+    "start:service:github": "npm start --workspace=github-service",
+    "start:service:user": "npm start --workspace=user-service",
+    "start:service:notification": "npm start --workspace=notification-service",
+    "start:service:onboarding": "npm start --workspace=onboarding-service",
+    "start:backend": "concurrently \"npm:start:service:*\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

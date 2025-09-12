@@ -28,10 +28,10 @@ app.get('/api', (req, res) => {
 
 // KPI Dashboard Routes
 app.use('/api/kpis', createProxyMiddleware({
-    target: KPIS_SERVICE_URL,
+    target: KPI_SERVICE_URL,
     changeOrigin: true,
     pathRewrite: {
-        '^/api/kpis': '/api',
+        '^/api/kpis': '/api', // This was the source of the error.
     },
 }));
 
@@ -39,6 +39,9 @@ app.use('/api/kpis', createProxyMiddleware({
 app.use('/api/vulnerabilities', createProxyMiddleware({
     target: VULNERABILITY_SERVICE_URL,
     changeOrigin: true,
+    pathRewrite: {
+        '^/api/vulnerabilities': '/api',
+    },
 }));
 
 // Onboarding Tool Routes
