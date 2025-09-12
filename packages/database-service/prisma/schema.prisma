@@ -1,0 +1,169 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ONBOARDING TOOL MODELS ---
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  role      String // 'user' or 'admin'
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  onboardingInstances OnboardingInstance[]
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model OnboardingTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  taskTemplates       TaskTemplate[]
+  onboardingInstances OnboardingInstance[]
+
+  @@map("onboarding_templates")
+}
+
+model TaskTemplate {
+  id                   Int      @id @default(autoincrement())
+  onboardingTemplateId Int
+  title                String
+  description          String?
+  type                 String // 'manual', 'manual_access_request', 'automated_access_request'
+  config               Json?
+  parentId             Int?     @map("parent_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  onboardingTemplate OnboardingTemplate @relation(fields: [onboardingTemplateId], references: [id])
+  parent             TaskTemplate?      @relation("TaskDependencies", fields: [parentId], references: [id])
+  children           TaskTemplate[]     @relation("TaskDependencies")
+
+  @@map("task_templates")
+}
+
+model OnboardingInstance {
+  id                   Int      @id @default(autoincrement())
+  userId               Int
+  onboardingTemplateId Int
+  status               String // 'pending', 'in_progress', 'completed'
+  startDate            DateTime @map("start_date")
+  endDate              DateTime? @map("end_date")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  user               User               @relation(fields: [userId], references: [id])
+  onboardingTemplate OnboardingTemplate @relation(fields: [onboardingTemplateId], references: [id])
+  tasks              OnboardingTask[]
+
+  @@map("onboarding_instances")
+}
+
+model OnboardingTask {
+  id                   Int      @id @default(autoincrement())
+  onboardingInstanceId Int
+  taskTemplateId       Int
+  status               String // 'pending', 'in_progress', 'completed', 'skipped'
+  completedAt          DateTime? @map("completed_at")
+  notes                String?
+  ticketId             String?  @map("ticket_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  onboardingInstance OnboardingInstance @relation(fields: [onboardingInstanceId], references: [id])
+  comments           TaskComment[]
+
+  @@map("onboarding_tasks")
+}
+
+model TaskComment {
+  id             Int      @id @default(autoincrement())
+  onboardingTaskId Int
+  author         String
+  comment        String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  onboardingTask OnboardingTask @relation(fields: [onboardingTaskId], references: [id])
+
+  @@map("task_comments")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  actor     String
+  action    String
+  target    String?
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+
+// --- VULNERABILITY DASHBOARD MODELS ---
+
+model Vulnerability {
+  id               String               @id @default(cuid())
+  uniqueKey        String               @unique // e.g., Dependabot::GHSA-1234 or CodeScanning::rule-id
+  description      String
+  severity         String
+  package          String
+  type             String // Dependabot or CodeScanning
+  githubAlertUrl   String
+  firstSeen        DateTime             @default(now())
+  lastSeen         DateTime             @updatedAt
+  affected         AffectedRepository[]
+}
+
+model Repository {
+  id       String               @id @default(cuid())
+  fullName String               @unique
+  url      String
+  affected AffectedRepository[]
+}
+
+model AffectedRepository {
+  id              String             @id @default(cuid())
+  vulnerability   Vulnerability      @relation(fields: [vulnerabilityId], references: [id])
+  vulnerabilityId String
+  repository      Repository         @relation(fields: [repositoryId], references: [id])
+  repositoryId    String
+  status          String // OPEN or RESOLVED
+  jiraTicket      RemediationTicket? @relation(fields: [jiraTicketId], references: [id])
+  jiraTicketId    String?
+
+  @@unique([vulnerabilityId, repositoryId])
+}
+
+model RemediationTicket {
+  id                 String               @id @default(cuid())
+  ticketKey          String               @unique
+  url                String
+  status             String
+  affectedRepository AffectedRepository[]
+}

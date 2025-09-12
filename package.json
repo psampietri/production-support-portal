@@ -1,0 +1,22 @@
+{
+  "name": "production-support-portal",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start:gateway": "npm start --workspace=api-gateway",
+    "start:kpi": "npm start --workspace=kpi-service",
+    "start:vulnerability": "npm start --workspace=vulnerability-service",
+    "start:jira": "npm start --workspace=jira-service",
+    "start:github": "npm start --workspace=github-service",
+    "start:user": "npm start --workspace=user-service",
+    "start:notification": "npm start --workspace=notification-service",
+    "start:onboarding": "npm start --workspace=onboarding-service",
+    "start:backend": "concurrently \"npm:start:*\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
