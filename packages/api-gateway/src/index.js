@@ -1,23 +1,15 @@
-const express = require('express');
-const cors = require('cors');
-const proxy = require('express-http-proxy');
-const { createProxyMiddleware } = require('http-proxy-middleware');
+import express from 'express';
+import cors from 'cors';
+import proxy from 'express-http-proxy';
+import dotenv from 'dotenv';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const app = express();
 
+dotenv.config();
+
 app.use(cors());
 app.use(express.json());
-
-// --- Service URLs ---
-const ONBOARDING_SERVICE_URL = 'http://localhost:3003'; // Assuming this is the main service for onboarding
-const KPIS_SERVICE_URL = 'http://localhost:7001';
-const VULNERABILITY_SERVICE_URL = 'http://localhost:5001';
-// Add other onboarding microservice URLs as needed
-const USER_SERVICE_URL = 'http://localhost:3001';
-const TEMPLATE_SERVICE_URL = 'http://localhost:3002';
-const ANALYTICS_SERVICE_URL = 'http://localhost:3004';
-const INTEGRATION_SERVICE_URL = 'http://localhost:3005';
-const NOTIFICATION_SERVICE_URL = 'http://localhost:3006';
 
 // Health check for the gateway
 app.get('/api', (req, res) => {
@@ -28,33 +20,33 @@ app.get('/api', (req, res) => {
 
 // KPI Dashboard Routes
 app.use('/api/kpis', createProxyMiddleware({
-    target: KPI_SERVICE_URL,
+    target: process.env.KPI_SERVICE_URL,
     changeOrigin: true,
     pathRewrite: {
-        '^/api/kpis': '/api', // This was the source of the error.
+        '^/api/kpis': '',
     },
 }));
 
 // Vulnerability Dashboard Routes
 app.use('/api/vulnerabilities', createProxyMiddleware({
-    target: VULNERABILITY_SERVICE_URL,
+    target: process.env.VULNERABILITY_SERVICE_URL,
     changeOrigin: true,
     pathRewrite: {
-        '^/api/vulnerabilities': '/api',
+        '^/api/vulnerabilities': '',
     },
 }));
 
 // Onboarding Tool Routes
-app.use('/api/users', proxy(USER_SERVICE_URL));
-app.use('/api/templates', proxy(TEMPLATE_SERVICE_URL));
-app.use('/api/onboarding', proxy(ONBOARDING_SERVICE_URL));
-app.use('/api/analytics', proxy(ANALYTICS_SERVICE_URL));
-app.use('/api/integrations', proxy(INTEGRATION_SERVICE_URL));
-app.use('/api/notifications', proxy(NOTIFICATION_SERVICE_URL));
+app.use('/api/users', proxy(process.env.USER_SERVICE_URL));
+app.use('/api/templates', proxy(process.env.TEMPLATE_SERVICE_URL));
+app.use('/api/onboarding', proxy(process.env.ONBOARDING_SERVICE_URL));
+app.use('/api/analytics', proxy(process.env.ANALYTICS_SERVICE_URL));
+app.use('/api/integrations', proxy(process.env.INTEGRATION_SERVICE_URL));
+app.use('/api/notifications', proxy(process.env.NOTIFICATION_SERVICE_URL));
 
 
 // --- Start Server ---
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.GATEWAY_PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 API Gateway started on http://localhost:${PORT}`);
 });

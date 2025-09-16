@@ -14,9 +14,11 @@
     "start:service:user": "npm start --workspace=user-service",
     "start:service:notification": "npm start --workspace=notification-service",
     "start:service:onboarding": "npm start --workspace=onboarding-service",
-    "start:backend": "concurrently \"npm:start:service:*\""
+    "start:backend": "dotenv concurrently \"npm:start:service:*\"",
+    "start:frontend": "dotenv -- npm run dev --workspace=frontend"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "dotenv-cli": "^10.0.0"
   }
 }
