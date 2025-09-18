@@ -6,9 +6,8 @@ import InitiativeTree from '../../components/kpi/InitiativeTree';
 import SprintProgress from '../../components/kpi/SprintProgress';
 import ErrorBoundary from '../../components/kpi/ErrorBoundary';
 import '../../styles/kpi/Dashboard.css'; // Import main dashboard styles
+import api from '../../services/api';
 
-// All API calls go through the gateway
-const API_BASE_URL = 'http://localhost:3000/api/kpis'; 
 
 const KpiDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -18,7 +17,7 @@ const KpiDashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/dashboard-data`);
+        const response = await api.get(`/kpis/dashboard-data`);
         if (response.data.success) {
           setDashboardData(response.data);
         } else {

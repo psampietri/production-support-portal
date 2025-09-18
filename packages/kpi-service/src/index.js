@@ -33,7 +33,7 @@ async function fetchIssueTree(issueKey) {
 }
 
 // --- API Endpoints ---
-app.get('/api/dashboard-data', async (req, res) => {
+app.get('/dashboard-data', async (req, res) => {
     try {
         const rootIssuesJql = `labels = '${process.env.JIRA_LABEL}' AND issuetype = 'Initiative'`;
         const rootIssuesResponse = await jiraApi.post('/api/jql', { jql: rootIssuesJql });
@@ -51,7 +51,7 @@ app.get('/api/dashboard-data', async (req, res) => {
     }
 });
 
-app.get('/api/sprints', async (req, res) => {
+app.get('/sprints', async (req, res) => {
     try {
         const boardId = process.env.JIRA_AGILE_BOARD_ID;
         const response = await jiraApi.get(`/api/agile/board/${boardId}/sprint`);
@@ -62,7 +62,7 @@ app.get('/api/sprints', async (req, res) => {
     }
 });
 
-app.get('/api/sprint-progress/:sprintId', async (req, res) => {
+app.get('/sprint-progress/:sprintId', async (req, res) => {
     try {
         const { sprintId } = req.params;
         const boardId = process.env.JIRA_AGILE_BOARD_ID;

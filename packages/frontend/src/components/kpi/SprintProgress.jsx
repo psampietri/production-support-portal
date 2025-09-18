@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import '../../styles/kpi/SprintProgress.css';
+import api from '../../services/api';
 
 const ProgressBar = ({ value, label }) => {
     const percentage = Math.round(value * 100);
@@ -46,7 +47,7 @@ const SprintProgress = () => {
     const [visibleList, setVisibleList] = useState(null);
 
     useEffect(() => {
-        axios.get('http://localhost:7001/api/sprints')
+        api.get('/kpis/sprints')
             .then(response => {
                 const activeSprint = response.data.sprints.find(s => s.state === 'active');
                 setSprints(response.data.sprints);
@@ -64,7 +65,7 @@ const SprintProgress = () => {
 
         setVisibleList(null);
         setIsLoading(true);
-        axios.get(`http://localhost:7001/api/sprint-progress/${selectedSprintId}`)
+        api.get(`/kpis/sprint-progress/${selectedSprintId}`)
             .then(response => {
                 setSprintData(response.data.sprintProgress);
                 setIsLoading(false);
