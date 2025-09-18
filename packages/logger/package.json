@@ -1,0 +1,9 @@
+{
+  "name": "@production-support-portal/logger",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "dependencies": {
+    "pino": "^9.2.0"
+  }
+}

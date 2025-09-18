@@ -1,75 +1,95 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Box, Grid, Typography, Alert, CircularProgress, Paper } from '@mui/material';
-import KpiCard from '../../components/kpi/KpiCard';
-import InitiativeTree from '../../components/kpi/InitiativeTree';
-import SprintProgress from '../../components/kpi/SprintProgress';
-import ErrorBoundary from '../../components/kpi/ErrorBoundary';
-import '../../styles/kpi/Dashboard.css'; // Import main dashboard styles
 import api from '../../services/api';
 
+// MUI Components for layout and feedback
+import { Grid, Paper, Typography, CircularProgress, Alert } from '@mui/material';
 
-const KpiDashboard = () => {
+// Import the refactored KPI components
+import KpiCard from '../../components/kpi/KpiCard';
+import InitiativeTree from '../../components/kpi/InitiativeTree';
+import SupportChart from '../../components/kpi/SupportChart';
+import TimeTrackingTable from '../../components/kpi/TimeTrackingTable';
+import SprintProgress from '../../components/kpi/SprintProgress';
+import ErrorBoundary from '../../components/kpi/ErrorBoundary';
+
+function KpiDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [jiraInstance, setJiraInstance] = useState('vwgoa'); // Or manage this state as needed
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await api.get(`/kpis/dashboard-data`);
+        setLoading(true);
+        const response = await api.get('/api/kpis/dashboard-data', {
+          params: { jiraInstance } // Use state for the instance
+        });
         if (response.data.success) {
           setDashboardData(response.data);
         } else {
-          throw new Error(response.data.error || 'An unknown error occurred.');
+          throw new Error(response.data.error || 'An unknown backend error occurred.');
         }
       } catch (err) {
         setError(err.message);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [jiraInstance]);
 
-  if (isLoading) {
-    return <Box textAlign="center"><CircularProgress /><Typography>Loading KPI Data...</Typography></Box>;
+  if (loading) {
+    return <CircularProgress />;
   }
 
   if (error) {
-    return <Alert severity="error">Failed to load KPI dashboard: {error}</Alert>;
+    return <Alert severity="error">Failed to load dashboard: {error}</Alert>;
   }
 
   if (!dashboardData) {
-    return <Typography>No KPI data available.</Typography>;
+    return <Typography>No data available.</Typography>;
   }
 
-  const { overallCompletion, data: initiatives } = dashboardData;
+  const { data, overallCompletion, supportKpis, timeTrackingData } = dashboardData;
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>KPI Dashboard</Typography>
-      
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+    <ErrorBoundary>
+      <Grid container spacing={3}>
+        {/* Row for main KPI cards */}
         <Grid item xs={12} sm={6} md={3}>
           <KpiCard value={`${(overallCompletion * 100).toFixed(1)}%`} label="Overall Weighted Completion" />
         </Grid>
-        {/* Add more KpiCard instances here if needed */}
-      </Grid>
-      
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <ErrorBoundary>
-          <InitiativeTree initiatives={initiatives} />
-        </ErrorBoundary>
-      </Paper>
+        <Grid item xs={12} sm={6} md={3}>
+          <KpiCard value={supportKpis?.totals?.total || 0} label="Total Support Tickets" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <KpiCard value={supportKpis?.totals?.inProgress || 0} label="Tickets In Progress" />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <KpiCard value={supportKpis?.totals?.backlog || 0} label="Tickets in Backlog" />
+        </Grid>
 
-      <Paper sx={{ p: 2 }}>
-        <ErrorBoundary>
-          <SprintProgress />
-        </ErrorBoundary>
-      </Paper>
-    </Box>
+        {/* Row for the Initiative Tree */}
+        <Grid item xs={12}>
+          <InitiativeTree initiatives={data} />
+        </Grid>
+        
+        {/* Row for Sprint Progress */}
+        <Grid item xs={12}>
+            <SprintProgress jiraInstance={jiraInstance} />
+        </Grid>
+
+        {/* Row for Charts and Tables */}
+{/*         <Grid item xs={12} lg={6}>
+            <SupportChart kpis={supportKpis} />
+        </Grid>
+        <Grid item xs={12} lg={6}>
+            <TimeTrackingTable timeData={timeTrackingData} />
+        </Grid> */}
+      </Grid>
+    </ErrorBoundary>
   );
-};
+}
 
 export default KpiDashboard;

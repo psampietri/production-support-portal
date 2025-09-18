@@ -1,103 +1,146 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import axios from 'axios';
+import pinoHttp from 'pino-http';
+import logger from '@production-support-portal/logger';
 import * as calculations from './calculations.js';
-
-dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(pinoHttp({ logger }));
 
-const PORT = process.env.KPI_SERVICE_PORT || 7001;
-const JIRA_SERVICE_URL = process.env.JIRA_SERVICE_URL || 'http://localhost:3007';
-const jiraApi = axios.create({ baseURL: JIRA_SERVICE_URL });
+const PORT = process.env.KPI_SERVICE_PORT;
+const JIRA_SERVICE_URL = `http://localhost:${process.env.JIRA_SERVICE_PORT}`;
+const jiraService = axios.create({ baseURL: JIRA_SERVICE_URL });
 
-// --- Helper Functions to call Jira Service ---
-async function fetchIssueTree(issueKey) {
-    const issueDetailsResponse = await jiraApi.post('/api/jql', { jql: `issuekey = "${issueKey}"` });
-    if (!issueDetailsResponse.data || issueDetailsResponse.data.length === 0) return null;
-    
-    const currentNode = issueDetailsResponse.data[0];
-    const childrenJql = `parent = "${issueKey}"`;
-    const childIssuesResponse = await jiraApi.post('/api/jql', { jql: childrenJql });
-    
-    if (childIssuesResponse.data && childIssuesResponse.data.length > 0) {
-        const childPromises = childIssuesResponse.data.map(child => fetchIssueTree(child.key));
-        currentNode.children = (await Promise.all(childPromises)).filter(Boolean);
-    } else {
-        currentNode.children = [];
+/**
+ * Recursively builds a tree of Jira issues.
+ */
+async function fetchInitiativeTree(issueKey, jiraInstanceId, reqLogger) {
+    reqLogger.debug({ issueKey }, 'Fetching node for initiative tree');
+    const response = await jiraService.post(`/api/${jiraInstanceId}/jql`, {
+        jql: `issuekey = "${issueKey}"`,
+        fields: ['*all']
+    });
+
+    const rootNode = response.data.data.issues[0];
+    if (!rootNode) {
+        reqLogger.warn({ issueKey }, 'Initiative tree node not found');
+        return null;
     }
-    return currentNode;
+
+    const childrenResponse = await jiraService.post(`/api/${jiraInstanceId}/jql`, {
+        jql: `parent = "${issueKey}"`,
+        fields: ['key']
+    });
+
+    const children = childrenResponse.data.data.issues;
+    if (children && children.length > 0) {
+        reqLogger.debug({ issueKey, childCount: children.length }, 'Fetching children for node');
+        const childPromises = children.map(child =>
+            fetchInitiativeTree(child.key, jiraInstanceId, reqLogger)
+        );
+        rootNode.children = (await Promise.all(childPromises)).filter(Boolean);
+    } else {
+        rootNode.children = [];
+    }
+    return rootNode;
 }
 
-// --- API Endpoints ---
-app.get('/dashboard-data', async (req, res) => {
-    try {
-        const rootIssuesJql = `labels = '${process.env.JIRA_LABEL}' AND issuetype = 'Initiative'`;
-        const rootIssuesResponse = await jiraApi.post('/api/jql', { jql: rootIssuesJql });
 
-        const treePromises = rootIssuesResponse.data.map(issue => fetchIssueTree(issue.key));
+// --- API Endpoints ---
+
+app.get('/dashboard-data', async (req, res) => {
+    const { jiraInstance } = req.query;
+    if (!jiraInstance) {
+        return res.status(400).json({ error: 'The "jiraInstance" query parameter is required.' });
+    }
+    req.log.info({ jiraInstance }, 'Starting dashboard data generation');
+
+    try {
+        const jql = `labels = '${process.env.JIRA_INITIATIVE_LABEL}' AND issuetype = 'Initiative' AND Key NOT IN ('APPS-3367') ORDER BY RANK`;
+        req.log.info({ jql }, 'Fetching root initiatives');
+        const rootIssuesResponse = await jiraService.post(`/api/${jiraInstance}/jql`, { jql, fields: ['key'] });
+        const rootIssues = rootIssuesResponse.data.data.issues;
+        req.log.info({ count: rootIssues.length }, 'Found root initiatives. Building trees...');
+
+        const treePromises = rootIssues.map(issue => fetchInitiativeTree(issue.key, jiraInstance, req.log));
         const rawTrees = await Promise.all(treePromises);
+        req.log.info('Tree building complete. Starting calculations...');
         
         const processedTrees = calculations.calculateInitiativeTrees(rawTrees.filter(t => t));
         const overallCompletion = calculations.calculateOverallCompletion(processedTrees);
+        req.log.info({ overallCompletion: `${(overallCompletion * 100).toFixed(1)}%` }, 'Calculations complete.');
 
         res.json({ success: true, data: processedTrees, overallCompletion });
     } catch (error) {
-        console.error('Error in /api/dashboard-data:', error.message);
+        req.log.error({ err: error.message, jiraInstance }, 'Failed to generate dashboard data');
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
+
 app.get('/sprints', async (req, res) => {
+    const { jiraInstance } = req.query;
+    if (!jiraInstance) {
+        return res.status(400).json({ error: 'The "jiraInstance" query parameter is required.' });
+    }
+    req.log.info({ jiraInstance }, 'Fetching sprints');
     try {
+        // This is the critical line that reads the board ID from the environment
         const boardId = process.env.JIRA_AGILE_BOARD_ID;
-        const response = await jiraApi.get(`/api/agile/board/${boardId}/sprint`);
-        res.json({ success: true, sprints: response.data.values });
+        if (!boardId) {
+            throw new Error('JIRA_AGILE_BOARD_ID is not defined in the environment variables.');
+        }
+
+        // FIXED: The boardId is now passed correctly as a query parameter
+        const response = await jiraService.get(`/api/${jiraInstance}/sprints`, {
+            params: { boardId }
+        });
+        res.json(response.data);
     } catch (error) {
-        console.error('Error in /api/sprints:', error.message);
+        req.log.error({ err: error.message, jiraInstance }, 'Failed to fetch sprints');
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
 app.get('/sprint-progress/:sprintId', async (req, res) => {
+    const { jiraInstance } = req.query;
+    const { sprintId } = req.params;
+    if (!jiraInstance) {
+        return res.status(400).json({ error: 'The "jiraInstance" query parameter is required.' });
+    }
+    req.log.info({ jiraInstance, sprintId }, 'Processing sprint progress request');
     try {
-        const { sprintId } = req.params;
         const boardId = process.env.JIRA_AGILE_BOARD_ID;
-        const response = await jiraApi.get(`/api/greenhopper/sprintreport?rapidViewId=${boardId}&sprintId=${sprintId}`);
         
-        const sprintReport = response.data;
-        // The sprint report contains issue keys, now we need to fetch their details
-        const issueKeys = [
-            ...sprintReport.contents.completedIssues.map(i => i.key),
-            ...sprintReport.contents.issuesNotCompletedInCurrentSprint.map(i => i.key),
-            ...sprintReport.contents.puntedIssues.map(i => i.key)
-        ];
-
-        const issueDetailsResponse = await jiraApi.post('/api/jql', { 
-            jql: `issuekey in (${issueKeys.join(',')})`,
-            fields: ['*all'], // Fetch all fields for calculation
-            expand: ['changelog']
+        // Call the new, powerful endpoint in the jira-service
+        const response = await jiraService.get(`/api/${jiraInstance}/sprint-report`, {
+            params: { boardId, sprintId }
         });
-        const issuesMap = new Map(issueDetailsResponse.data.map(i => [i.key, i]));
-        
-        const detailedReport = {
-            sprint: sprintReport.sprint,
-            completedIssues: sprintReport.contents.completedIssues.map(i => issuesMap.get(i.key)).filter(Boolean),
-            issuesNotCompleted: sprintReport.contents.issuesNotCompletedInCurrentSprint.map(i => issuesMap.get(i.key)).filter(Boolean),
-            puntedIssues: sprintReport.contents.puntedIssues.map(i => issuesMap.get(i.key)).filter(Boolean),
-        };
 
-        const sprintProgress = calculations.calculateSprintProgress(detailedReport, process.env.JIRA_TSHIRT_FIELD_ID);
+        if (!response.data.success) {
+            throw new Error('Failed to get sprint report from jira-service');
+        }
+
+        const sprintReport = response.data.data;
+        
+        // Perform the calculation with the real, detailed data
+        const sprintProgress = calculations.calculateSprintProgress(sprintReport, process.env.JIRA_TSHIRT_FIELD_ID);
+        
+        req.log.info({ sprintId }, 'Successfully calculated sprint progress');
         res.json({ success: true, sprintProgress });
+
     } catch (error) {
-        console.error(`Error in /api/sprint-progress/${req.params.sprintId}:`, error.message);
+        req.log.error({ err: error.message, jiraInstance, sprintId }, 'Failed to process sprint progress');
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
+
+
+
 app.listen(PORT, () => {
-    console.log(`🚀 KPI Service running on http://localhost:${PORT}`);
+    logger.info(`🚀 KPI Service running on http://localhost:${PORT}`);
 });

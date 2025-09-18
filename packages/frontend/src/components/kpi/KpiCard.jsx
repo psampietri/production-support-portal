@@ -1,12 +1,27 @@
 import React from 'react';
-import '../../styles/kpi/KpiCard.css'; // Corrected path
+import { Card, CardContent, Typography } from '@mui/material';
 
 const KpiCard = ({ value, label }) => {
   return (
-    <div className="kpi-card">
-      <div className="kpi-value">{value}</div>
-      <div className="kpi-label">{label}</div>
-    </div>
+    <Card sx={{ textAlign: 'center', height: '100%' }}>
+      <CardContent>
+        <Typography 
+          variant="h4" 
+          component="div" 
+          color="primary" 
+          sx={{ fontWeight: 'bold' }}
+        >
+          {value}
+        </Typography>
+        <Typography 
+          variant="body1" 
+          color="text.secondary" 
+          sx={{ mt: 1 }}
+        >
+          {label}
+        </Typography>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -1,82 +1,89 @@
 import React from 'react';
-import { Tree } from "react-arborist"; // Import the library component
-import '../../styles/kpi/Dashboard.css';
+import { Tree } from "react-arborist";
+import { Paper, Box, Typography, LinearProgress, IconButton, Grid } from '@mui/material';
+import { ChevronRight, KeyboardArrowDown } from '@mui/icons-material';
 
-// --- UPDATED ProgressBar COMPONENT ---
-const ProgressBar = ({ value }) => {
-  const percentage = Math.round(value * 100);
-  return (
-    // The container is now a positioning context for the label
-    <div className="progress-bar-container">
-      {/* This is the colored bar that grows */}
-      <div className="progress-bar" style={{ width: `${percentage}%` }}></div>
-      {/* This is the text label that sits on top */}
-      <span className="progress-bar-label">{percentage}%</span>
-    </div>
-  );
-};
-
-// --- Custom Node Renderer ---
-// This component defines how each row in the tree should look.
-// The library passes special props like `node`, `style`, and `dragHandle`.
-const Node = ({ node, style, dragHandle }) => {
-  // `node.data` holds our original issue object
+// --- Custom Node Renderer (Final Version) ---
+const Node = ({ node, style, dragHandle, tree }) => {
   const issue = node.data;
+  const percentage = Math.round(issue.completion * 100);
+  const isSelected = tree.isSelected(node.id);
 
   return (
-    // The library provides the style prop for virtualization
-    <div ref={dragHandle} style={style} className="tree-row">
-      <div className="tree-cell key-cell">
-        {/* The library provides helpers to show a toggle arrow */}
-        <span onClick={() => node.toggle()} style={{ cursor: 'pointer' }}>
-            {node.isLeaf ? null : (node.isOpen ? "▼" : "▶")}
-        </span>
-        <span style={{ marginLeft: '10px' }}>{issue.key}</span>
-      </div>
-      <div className="tree-cell summary-cell">{issue.fields?.summary}</div>
-      <div className="tree-cell status-cell">{issue.fields?.status?.name}</div>
-      {/* The component reads the pre-calculated completion from the issue object */}
-      <div className="tree-cell progress-cell"><ProgressBar value={issue.completion} /></div>
-      <div className="tree-cell count-cell">{issue.issueCount}</div>
-    </div>
+    <Box
+      ref={dragHandle}
+      // This is the crucial part: merge the library's positioning style
+      // with our MUI sx prop for highlighting and layout.
+      style={style}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        cursor: 'pointer',
+        backgroundColor: isSelected ? 'action.selected' : 'transparent',
+      }}
+      onClick={() => node.select()}
+    >
+      <Grid container alignItems="center" sx={{ p: 0.5, width: '100%' }}>
+        <Grid item xs={3}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {/* The indent is now controlled by the Tree's indent prop */}
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); node.toggle(); }} sx={{ mr: 0.5 }}>
+              {node.isLeaf ? <span style={{ width: 24 }} /> : (node.isOpen ? <KeyboardArrowDown /> : <ChevronRight />)}
+            </IconButton>
+            <Typography variant="body2">{issue.key}</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={4}><Typography variant="body2" noWrap>{issue.fields?.summary}</Typography></Grid>
+        <Grid item xs={2}><Typography variant="body2" noWrap>{issue.fields?.status?.name}</Typography></Grid>
+        <Grid item xs={2}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <LinearProgress variant="determinate" value={percentage} sx={{ width: '100%', height: 10, borderRadius: 5, mr: 1 }} />
+            <Typography variant="caption">{`${percentage}%`}</Typography>
+          </Box>
+        </Grid>
+        <Grid item xs={1} sx={{ textAlign: 'center' }}><Typography variant="body2">{issue.issueCount}</Typography></Grid>
+      </Grid>
+    </Box>
   );
 };
 
+// Header component remains the same
+const TreeHeader = () => (
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', fontWeight: 'bold' }}>
+        <Grid container alignItems="center" sx={{ p: 0.5, px: 2 }}>
+            <Grid item xs={3}><Typography variant="subtitle2">Key</Typography></Grid>
+            <Grid item xs={4}><Typography variant="subtitle2">Summary</Typography></Grid>
+            <Grid item xs={2}><Typography variant="subtitle2">Status</Typography></Grid>
+            <Grid item xs={2}><Typography variant="subtitle2">Completion</Typography></Grid>
+            <Grid item xs={1} sx={{ textAlign: 'center' }}><Typography variant="subtitle2">Issues</Typography></Grid>
+        </Grid>
+    </Box>
+);
 
-// --- The Main Tree Component ---
 const InitiativeTree = ({ initiatives }) => {
   if (!initiatives || initiatives.length === 0) {
-    return <p>No initiative data available.</p>;
+    return <Typography>No initiative data available.</Typography>;
   }
-
-  // The library requires each node to have a unique `id`. We can use our `key`.
   const treeData = initiatives.map(init => ({ ...init, id: init.key }));
 
   return (
-    <div className="card">
-      <h2>OKR Progress</h2>
-      <div className="tree-container">
-        {/* Header Row */}
-        <div className="tree-row header">
-          <div className="tree-cell key-cell">Key</div>
-          <div className="tree-cell summary-cell">Summary</div>
-          <div className="tree-cell status-cell">Status</div>
-          <div className="tree-cell progress-cell">Completion</div>
-          <div className="tree-cell count-cell">Issues</div>
-        </div>
-        
-        {/* The Tree component from the react-arborist library */}
+    <Paper elevation={3}>
+        <Box sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>OKR Progress</Typography>
+        </Box>
+        <TreeHeader />
         <Tree
-          initialData={treeData}
-          openByDefault={false} // Start with all nodes collapsed
-          width="100%"
-          height={400} // Set a fixed height for performance (virtualization)
-          indent={24}   // The indentation space for each level
+            initialData={treeData}
+            openByDefault={false}
+            width="100%"
+            height={400}
+            // Use the library's indent prop for clean indentation
+            indent={24}
+            disableMultiSelection
         >
-          {Node}
+            {Node}
         </Tree>
-      </div>
-    </div>
+    </Paper>
   );
 };
 

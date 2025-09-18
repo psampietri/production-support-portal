@@ -6,19 +6,15 @@
     "packages/*"
   ],
   "scripts": {
-    "start:service:gateway": "npm start --workspace=api-gateway",
-    "start:service:kpi": "npm start --workspace=kpi-service",
-    "start:service:vulnerability": "npm start --workspace=vulnerability-service",
-    "start:service:jira": "npm start --workspace=jira-service",
-    "start:service:github": "npm start --workspace=github-service",
-    "start:service:user": "npm start --workspace=user-service",
-    "start:service:notification": "npm start --workspace=notification-service",
-    "start:service:onboarding": "npm start --workspace=onboarding-service",
-    "start:backend": "dotenv concurrently \"npm:start:service:*\"",
-    "start:frontend": "dotenv -- npm run dev --workspace=frontend"
+    "install-all": "npm install",
+    "start:backend": "concurrently \"npm:start:backend:*\"",
+    "start:backend:gateway": "npm start --workspace=api-gateway",
+    "start:backend:jira": "npm start --workspace=jira-service",
+    "start:backend:kpi": "npm start --workspace=kpi-service",
+    "start:frontend": "npm run dev --workspace=frontend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "dotenv-cli": "^10.0.0"
+    "pino-pretty": "^11.2.1"
   }
 }

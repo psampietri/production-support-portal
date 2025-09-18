@@ -1,0 +1,15 @@
+.tree-row {
+  /* This is the default state for a row */
+  background-color: transparent !important;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.tree-row:hover {
+  /* This is the style for when a user hovers over the row */
+  background-color: rgba(0, 0, 0, 0.04) !important; /* A standard MUI hover color */
+}
+
+.tree-row.selected {
+  /* This class will be added by react-arborist when a row is clicked */
+  background-color: rgba(0, 0, 0, 0.08) !important; /* A standard MUI selected color */
+}

@@ -1,52 +1,40 @@
 import express from 'express';
 import cors from 'cors';
-import proxy from 'express-http-proxy';
-import dotenv from 'dotenv';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import pinoHttp from 'pino-http';
+import logger from '@production-support-portal/logger';
 
 const app = express();
-
-dotenv.config();
-
 app.use(cors());
-app.use(express.json());
+app.use(pinoHttp({ logger })); // Use pino-http for automated request logging
 
-// Health check for the gateway
-app.get('/api', (req, res) => {
-    res.send('Production Support Portal Gateway is running');
-});
+const PORT = process.env.API_GATEWAY_PORT;
+
+const JIRA_SERVICE_URL = `http://localhost:${process.env.JIRA_SERVICE_PORT}`;
+const KPI_SERVICE_URL = `http://localhost:${process.env.KPI_SERVICE_PORT}`;
 
 // --- Proxy Middleware Setup ---
 
-// KPI Dashboard Routes
-app.use('/api/kpis', createProxyMiddleware({
-    target: process.env.KPI_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-        '^/api/kpis': '',
-    },
-}));
+const createProxy = (path, target) => {
+    return createProxyMiddleware({
+        target,
+        changeOrigin: true,
+        pathRewrite: { [`^/api/${path}`]: '/api' },
+        on: {
+            proxyReq: (proxyReq, req, res) => {
+                req.log.info({ service: path, target }, `Proxying request to ${path} service`);
+            },
+            error: (err, req, res) => {
+                req.log.error({ err, service: path }, `Error proxying to ${path} service`);
+            }
+        }
+    });
+};
 
-// Vulnerability Dashboard Routes
-app.use('/api/vulnerabilities', createProxyMiddleware({
-    target: process.env.VULNERABILITY_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-        '^/api/vulnerabilities': '',
-    },
-}));
-
-// Onboarding Tool Routes
-app.use('/api/users', proxy(process.env.USER_SERVICE_URL));
-app.use('/api/templates', proxy(process.env.TEMPLATE_SERVICE_URL));
-app.use('/api/onboarding', proxy(process.env.ONBOARDING_SERVICE_URL));
-app.use('/api/analytics', proxy(process.env.ANALYTICS_SERVICE_URL));
-app.use('/api/integrations', proxy(process.env.INTEGRATION_SERVICE_URL));
-app.use('/api/notifications', proxy(process.env.NOTIFICATION_SERVICE_URL));
+app.use('/api/jira', createProxy('jira', JIRA_SERVICE_URL));
+app.use('/api/kpis', createProxy('kpis', KPI_SERVICE_URL));
 
 
-// --- Start Server ---
-const PORT = process.env.GATEWAY_PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 API Gateway started on http://localhost:${PORT}`);
+    logger.info(`🚀 API Gateway running on http://localhost:${PORT}`);
 });

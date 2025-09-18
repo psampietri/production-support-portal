@@ -1,168 +1,183 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import '../../styles/kpi/SprintProgress.css';
 import api from '../../services/api';
+import {
+  Paper, Box, Typography, Select, MenuItem, LinearProgress, Grid,
+  Table, TableBody, TableCell, TableHead, TableRow, Collapse, CardActionArea, Divider, CircularProgress, Alert
+} from '@mui/material';
 
-const ProgressBar = ({ value, label }) => {
-    const percentage = Math.round(value * 100);
-    return (
-        <div className="sprint-progress-bar-container" data-label={`${percentage}%`}>
-            <div className="sprint-progress-bar" style={{ width: `${percentage}%` }}>
-            </div>
-        </div>
-    );
+// --- MUI-based Sub-components ---
+
+const ProgressBar = ({ value }) => {
+  const percentage = Math.round(value * 100);
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      <LinearProgress variant="determinate" value={percentage} sx={{ flexGrow: 1, height: 12, borderRadius: 6, mr: 2 }} />
+      <Typography variant="h6">{`${percentage}%`}</Typography>
+    </Box>
+  );
 };
 
-const SprintIssueList = ({ title, issues }) => (
-    <div className="sprint-issue-list">
-        <h4>{title} ({issues.length})</h4>
-        {issues.length > 0 ? (
-            <table>
-                <thead>
-                    <tr>
-                        <th>Key</th>
-                        <th>Summary</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {issues.map(issue => (
-                        <tr key={issue.key}>
-                            <td>{issue.key}</td>
-                            <td>{issue.fields.summary}</td>
-                            <td>{issue.fields.status.name}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        ) : <p>No issues in this category.</p>}
-    </div>
+const StatCard = ({ title, value, color, onClick }) => (
+  <Grid item xs={6} sm={3}>
+    <CardActionArea onClick={onClick}>
+      <Paper elevation={2} sx={{ p: 2, textAlign: 'center', '&:hover': { backgroundColor: 'action.hover' } }}>
+        <Typography variant="h4" sx={{ color: color || 'text.primary', fontWeight: 'bold' }}>
+          {value}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">{title}</Typography>
+      </Paper>
+    </CardActionArea>
+  </Grid>
 );
 
-const SprintProgress = () => {
-    const [sprints, setSprints] = useState([]);
-    const [selectedSprintId, setSelectedSprintId] = useState('');
-    const [sprintData, setSprintData] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [visibleList, setVisibleList] = useState(null);
+const SprintIssueList = ({ title, issues }) => (
+  <Collapse in={true} timeout="auto" unmountOnExit>
+    <Box sx={{ my: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+      <Typography variant="h6" gutterBottom>{title} ({issues.length})</Typography>
+      {issues.length > 0 ? (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Key</TableCell>
+              <TableCell>Summary</TableCell>
+              <TableCell>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {issues.map(issue => (
+              <TableRow key={issue.key}>
+                <TableCell>{issue.key}</TableCell>
+                <TableCell>{issue.fields.summary}</TableCell>
+                <TableCell>{issue.fields.status.name}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : <Typography sx={{ mt: 2 }}>No issues in this category.</Typography>}
+    </Box>
+  </Collapse>
+);
 
-    useEffect(() => {
-        api.get('/kpis/sprints')
-            .then(response => {
-                const activeSprint = response.data.sprints.find(s => s.state === 'active');
-                setSprints(response.data.sprints);
-                if (activeSprint) {
-                    setSelectedSprintId(activeSprint.id);
-                } else if (response.data.sprints.length > 0) {
-                    setSelectedSprintId(response.data.sprints[0].id);
-                }
-            })
-            .catch(error => console.error("Failed to fetch sprints", error));
-    }, []);
 
-    useEffect(() => {
-        if (!selectedSprintId) return;
+// --- Main SprintProgress Component ---
+const SprintProgress = ({ jiraInstance }) => {
+  const [sprints, setSprints] = useState([]);
+  const [selectedSprintId, setSelectedSprintId] = useState('');
+  const [sprintData, setSprintData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [visibleList, setVisibleList] = useState(null);
 
-        setVisibleList(null);
+  useEffect(() => {
+    if (!jiraInstance) return;
+
+    const fetchSprints = async () => {
+      try {
+        setError(null);
         setIsLoading(true);
-        api.get(`/kpis/sprint-progress/${selectedSprintId}`)
-            .then(response => {
-                setSprintData(response.data.sprintProgress);
-                setIsLoading(false);
-            })
-            .catch(error => {
-                console.error(`Failed to fetch sprint data for sprint ${selectedSprintId}`, error);
-                setIsLoading(false);
-            });
-    }, [selectedSprintId]);
+        const response = await api.get('/api/kpis/sprints', {
+          params: { jiraInstance }
+        });
 
-    const toggleVisibleList = (listName) => {
-        setVisibleList(current => (current === listName ? null : listName));
+        if (response.data.success) {
+          // FIXED: We must access the .data property of the response, which contains the array.
+          const sprintsData = response.data.data || [];
+          
+          if (!Array.isArray(sprintsData)) {
+            throw new Error("The API did not return a valid list of sprints.");
+          }
+
+          const activeSprint = sprintsData.find(s => s.state === 'active');
+          setSprints(sprintsData);
+
+          if (activeSprint) {
+            setSelectedSprintId(activeSprint.id);
+          } else if (sprintsData.length > 0) {
+            setSelectedSprintId(sprintsData[0].id);
+          } else {
+            // No sprints found, stop loading.
+            setIsLoading(false);
+          }
+        } else {
+          throw new Error(response.data.error || 'Failed to fetch sprints.');
+        }
+      } catch (err) {
+        console.error("Failed to fetch sprints", err);
+        setError(err.message);
+        setIsLoading(false);
+      }
     };
+    fetchSprints();
+  }, [jiraInstance]);
 
-    return (
-        <div className="card">
-            <div className="sprint-header">
-                <h2>Sprint Progress</h2>
-                <select value={selectedSprintId} onChange={e => setSelectedSprintId(e.target.value)}>
-                    {sprints.map(sprint => (
-                        <option key={sprint.id} value={sprint.id}>
-                            {sprint.name} ({sprint.state})
-                        </option>
-                    ))}
-                </select>
-            </div>
+  useEffect(() => {
+    if (!selectedSprintId || !jiraInstance) return;
 
-            {isLoading ? (<p>Loading sprint data...</p>) : sprintData ? (
-                <div className="sprint-content">
-                    <ProgressBar value={sprintData.progress} />
+    const fetchSprintData = async () => {
+      setVisibleList(null);
+      setError(null);
+      setIsLoading(true);
+      try {
+        const response = await api.get(`/api/kpis/sprint-progress/${selectedSprintId}`, {
+          params: { jiraInstance }
+        });
+        
+        if (response.data.success) {
+          setSprintData(response.data.sprintProgress);
+        } else {
+          throw new Error(response.data.error || 'Failed to fetch sprint data.');
+        }
+      } catch (err) {
+        console.error(`Failed to fetch sprint data for sprint ${selectedSprintId}`, err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSprintData();
+  }, [selectedSprintId, jiraInstance]);
 
-                    {/* --- SCOPE BREAKDOWN SECTION --- */}
-                    <h3 className="section-title">Scope Breakdown</h3>
-                    <div className="sprint-stats-grid">
-                        <div className="stat-box" onClick={() => toggleVisibleList('carryOver')}>
-                            <div className="stat-value carry-over">{sprintData.scope.carryOver.count}</div>
-                            <div className="stat-label">Carry Over</div>
-                        </div>
-                        <div className="stat-box" onClick={() => toggleVisibleList('newPlanned')}>
-                            <div className="stat-value">{sprintData.scope.newPlanned.count}</div>
-                            <div className="stat-label">New Planned</div>
-                        </div>
-                        <div className="stat-box" onClick={() => toggleVisibleList('added')}>
-                            <div className="stat-value added">+{sprintData.scope.added.count}</div>
-                            <div className="stat-label">Scope Added</div>
-                        </div>
-                        <div className="stat-box" onClick={() => toggleVisibleList('punted')}>
-                            <div className="stat-value punted">{sprintData.scope.punted.count > 0 ? `-${sprintData.scope.punted.count}` : 0}</div>
-                            <div className="stat-label">Punted</div>
-                        </div>
-                    </div>
+  const toggleVisibleList = (listName) => {
+    setVisibleList(current => (current === listName ? null : listName));
+  };
 
-                    {/* --- STATUS BREAKDOWN SECTION --- */}
-                    <h3 className="section-title">Status Breakdown</h3>
-                    <div className="sprint-stats-grid status-grid">
-                        <div className="stat-box" onClick={() => toggleVisibleList('completed')}>
-                            <div className="stat-value">{sprintData.status.completed.count}</div>
-                            <div className="stat-label">Completed</div>
-                        </div>
-                        <div className="stat-box" onClick={() => toggleVisibleList('notCompleted')}>
-                            <div className="stat-value">{sprintData.status.notCompleted.count}</div>
-                            <div className="stat-label">Not Completed</div>
-                        </div>
-                    </div>
+  return (
+    <Paper elevation={3} sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6">Sprint Progress</Typography>
+        <Select value={selectedSprintId} onChange={e => setSelectedSprintId(e.target.value)} size="small" disabled={sprints.length === 0}>
+          {sprints.map(sprint => (
+            <MenuItem key={sprint.id} value={sprint.id}>
+              {sprint.name} ({sprint.state})
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
+      <Divider sx={{ mb: 2 }} />
 
-                    {sprintData.timeBreakdown && (
-                        <>
-                            <h3 className="section-title">Time Spent Breakdown (Completed Tickets)</h3>
-                            <div className="sprint-stats-grid time-grid">
-                                <div className="stat-box">
-                                    <div className="stat-value time-value">{sprintData.timeBreakdown.totalHours.toFixed(1)}h</div>
-                                    <div className="stat-label">Total Time Spent</div>
-                                </div>
-                                <div className="stat-box">
-                                    <div className="stat-value time-value">{sprintData.timeBreakdown.plannedHours.toFixed(1)}h</div>
-                                    <div className="stat-label">Planned Work</div>
-                                </div>
-                                <div className="stat-box">
-                                    <div className="stat-value time-value">{sprintData.timeBreakdown.addedHours.toFixed(1)}h</div>
-                                    <div className="stat-label">Scope Added</div>
-                                </div>
-                            </div>
-                        </>
-                    )}
+      {isLoading && <CircularProgress />}
+      {error && <Alert severity="error">{error}</Alert>}
+      {!isLoading && !error && sprintData && (
+        <>
+          <ProgressBar value={sprintData.progress} />
 
-                    {/* --- DYNAMIC ISSUE LISTS --- */}
-                    {visibleList === 'carryOver' && <SprintIssueList title="Carried Over Issues" issues={sprintData.scope.carryOver.issues} />}
-                    {visibleList === 'newPlanned' && <SprintIssueList title="New Planned Issues" issues={sprintData.scope.newPlanned.issues} />}
-                    {visibleList === 'added' && <SprintIssueList title="Issues Added Mid-Sprint" issues={sprintData.scope.added.issues} />}
-                    {visibleList === 'punted' && <SprintIssueList title="Punted Issues" issues={sprintData.scope.punted.issues} />}
-                    {visibleList === 'completed' && <SprintIssueList title="Completed Issues" issues={sprintData.status.completed.issues} />}
-                    {visibleList === 'notCompleted' && <SprintIssueList title="Issues Not Completed" issues={sprintData.status.notCompleted.issues} />}
-                </div>
-            ) : (<p>No data available.</p>)}
-        </div>
-    );
+          <Typography variant="subtitle1" sx={{ mt: 3, mb: 1, fontWeight: 'bold' }}>Scope Breakdown</Typography>
+          <Grid container spacing={2}>
+            <StatCard title="Carry Over" value={sprintData.scope.carryOver.count} color="info.main" onClick={() => toggleVisibleList('carryOver')} />
+            <StatCard title="New Planned" value={sprintData.scope.newPlanned.count} onClick={() => toggleVisibleList('newPlanned')} />
+            <StatCard title="Scope Added" value={`+${sprintData.scope.added.count}`} color="success.main" onClick={() => toggleVisibleList('added')} />
+            <StatCard title="Punted" value={sprintData.scope.punted.count > 0 ? `-${sprintData.scope.punted.count}` : 0} color="error.main" onClick={() => toggleVisibleList('punted')} />
+          </Grid>
+
+          {visibleList === 'carryOver' && <SprintIssueList title="Carried Over Issues" issues={sprintData.scope.carryOver.issues} />}
+          {visibleList === 'newPlanned' && <SprintIssueList title="New Planned Issues" issues={sprintData.scope.newPlanned.issues} />}
+          {visibleList === 'added' && <SprintIssueList title="Issues Added Mid-Sprint" issues={sprintData.scope.added.issues} />}
+          {visibleList === 'punted' && <SprintIssueList title="Punted Issues" issues={sprintData.scope.punted.issues} />}
+        </>
+      )}
+       {!isLoading && !error && !sprintData && <Typography>No data available for this sprint.</Typography>}
+    </Paper>
+  );
 };
-
 
 export default SprintProgress;
