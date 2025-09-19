@@ -48,49 +48,84 @@ app.get('/api/:instanceId/sprints', async (req, res) => {
 
 app.get('/api/:instanceId/sprint-report', async (req, res) => {
     const { boardId, sprintId } = req.query;
+    req.log.info({ boardId, sprintId }, '--- Starting sprint report generation ---');
+
     if (!boardId || !sprintId) {
-        return res.status(400).json({ success: false, error: 'boardId and sprintId query parameters are required.' });
+        req.log.error('Missing boardId or sprintId');
+        return res.status(400).json({ error: 'boardId and sprintId query parameters are required.' });
     }
+
     try {
-        const reportResponse = await req.jira.greenhopper.get('/rapid/charts/sprintreport', {
-            params: {
-                rapidViewId: parseInt(boardId, 10),
-                sprintId: parseInt(sprintId, 10),
-            },
-        });
-        
+        req.log.info('Step 1: Creating Greenhopper API client');
+        const greenhopperClient = req.jira.greenhopper;
+
+        const requestParams = { rapidViewId: boardId, sprintId };
+        req.log.info({ url: `${greenhopperClient.defaults.baseURL}/rapid/charts/sprintreport`, params: requestParams }, 'Step 2: Fetching sprint report from Greenhopper');
+
+        const reportResponse = await greenhopperClient.get('/rapid/charts/sprintreport', { params: requestParams });
         const report = reportResponse.data;
+        req.log.info('Step 3: Successfully fetched sprint report data from Greenhopper');
+
         const issueKeys = [
             ...(report.contents.completedIssues?.map(i => i.key) || []),
             ...(report.contents.issuesNotCompletedInCurrentSprint?.map(i => i.key) || []),
             ...(report.contents.puntedIssues?.map(i => i.key) || [])
         ];
+        req.log.info({ issueCount: issueKeys.length }, 'Step 4: Extracted issue keys from report');
 
         if (issueKeys.length === 0) {
-            return res.json({ 
-                success: true, 
+            req.log.info('No issues found in the sprint report. Returning empty data.');
+            return res.json({
+                success: true,
                 data: { sprint: report.sprint, completedIssues: [], issuesNotCompleted: [], puntedIssues: [] }
             });
         }
 
-        const requiredFields = ['summary', 'status', 'issuetype', 'created', process.env.JIRA_TSHIRT_FIELD_ID].filter(Boolean);
-        const issueDetailsResponse = await req.jira.api.post('/search/jql', {
+        const requiredFields = [
+            'summary', 'status', 'issuetype', 'created',
+            process.env.JIRA_TSHIRT_FIELD_ID
+        ].filter(Boolean);
+
+        const jqlPayload = {
             jql: `issuekey in (${issueKeys.join(',')})`,
-            fields: requiredFields,
-            expand: ['changelog'],
+            fields: requiredFields.join(','), // Join the fields array into a comma-separated string
+            expand: 'changelog'
+        };
+
+        req.log.info({ jql: jqlPayload.jql, fields: jqlPayload.fields }, 'Step 5: Fetching full issue details via JQL');
+
+        const issueDetailsResponse = await req.jira.api.get('/search/jql', {
+            params: {
+                jql: jqlPayload.jql,
+                fields: jqlPayload.fields,
+                expand: jqlPayload.expand
+            }
         });
+        req.log.info('Step 6: Successfully fetched issue details');
+
         const issuesMap = new Map(issueDetailsResponse.data.issues.map(i => [i.key, i]));
-        
+
         const detailedReport = {
             sprint: report.sprint,
             completedIssues: (report.contents.completedIssues || []).map(i => issuesMap.get(i.key)).filter(Boolean),
             issuesNotCompleted: (report.contents.issuesNotCompletedInCurrentSprint || []).map(i => issuesMap.get(i.key)).filter(Boolean),
             puntedIssues: (report.contents.puntedIssues || []).map(i => issuesMap.get(i.key)).filter(Boolean),
         };
+
+        req.log.info('Step 7: Successfully built detailed sprint report. Sending response.');
         res.json({ success: true, data: detailedReport });
+
     } catch (error) {
-        const errorMessage = error.response?.data?.errorMessages?.join(' ') || error.message;
-        res.status(error.response?.status || 500).json({ success: false, error: errorMessage });
+        const errorDetails = {
+            message: error.message,
+            url: error.config?.url,
+            method: error.config?.method,
+            params: error.config?.params,
+            status: error.response?.status,
+            data: error.response?.data
+        };
+        req.log.error({ err: errorDetails, boardId, sprintId }, '--- Sprint report generation failed ---');
+        res.status(error.response?.status || 500).json({ success: false, error: error.response?.data || 'An internal error occurred' });
     }
 });
 
