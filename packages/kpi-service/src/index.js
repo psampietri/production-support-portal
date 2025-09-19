@@ -109,32 +109,32 @@ app.get('/sprint-progress/:sprintId', async (req, res) => {
     const { jiraInstance } = req.query;
     const { sprintId } = req.params;
     if (!jiraInstance) {
-        return res.status(400).json({ error: 'The "jiraInstance" query parameter is required.' });
+        return res.status(400).json({ success: false, error: 'The "jiraInstance" query parameter is required.' });
     }
     req.log.info({ jiraInstance, sprintId }, 'Processing sprint progress request');
     try {
         const boardId = process.env.JIRA_AGILE_BOARD_ID;
         
-        // Call the new, powerful endpoint in the jira-service
         const response = await jiraService.get(`/api/${jiraInstance}/sprint-report`, {
             params: { boardId, sprintId }
         });
 
         if (!response.data.success) {
-            throw new Error('Failed to get sprint report from jira-service');
+            throw new Error(response.data.error || 'Failed to get sprint report from jira-service');
         }
 
         const sprintReport = response.data.data;
         
-        // Perform the calculation with the real, detailed data
         const sprintProgress = calculations.calculateSprintProgress(sprintReport, process.env.JIRA_TSHIRT_FIELD_ID);
         
         req.log.info({ sprintId }, 'Successfully calculated sprint progress');
         res.json({ success: true, sprintProgress });
 
     } catch (error) {
-        req.log.error({ err: error.message, jiraInstance, sprintId }, 'Failed to process sprint progress');
-        res.status(500).json({ success: false, error: error.message });
+        // Propagate the detailed error message from the downstream service.
+        const errorMessage = error.response?.data?.error || error.message;
+        req.log.error({ err: errorMessage, jiraInstance, sprintId }, 'Failed to process sprint progress');
+        res.status(500).json({ success: false, error: errorMessage });
     }
 });
 
