@@ -6,15 +6,26 @@
     "packages/*"
   ],
   "scripts": {
-    "install-all": "npm install",
+    "install-all": "npm install --workspaces",
     "start:backend": "concurrently \"npm:start:backend:*\"",
     "start:backend:gateway": "npm start --workspace=api-gateway",
     "start:backend:jira": "npm start --workspace=jira-service",
     "start:backend:kpi": "npm start --workspace=kpi-service",
-    "start:frontend": "npm run dev --workspace=frontend"
+    "start:backend:user": "npm start --workspace=user-service",
+    "start:backend:template": "npm start --workspace=template-service",
+    "start:backend:onboarding": "npm start --workspace=onboarding-service",
+    "start:backend:notification": "npm start --workspace=notification-service",
+    "start:backend:analytics": "npm start --workspace=analytics-service",
+    "start:frontend": "npm run dev --workspace=frontend",
+    "db:migrate": "npx prisma migrate dev --schema=./packages/database/prisma/schema.prisma"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "pino-pretty": "^11.2.1"
+    "pino-pretty": "^11.2.1",
+    "prisma": "^5.17.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "pg": "^8.16.3"
   }
 }

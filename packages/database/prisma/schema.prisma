@@ -1,0 +1,181 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Make sure this is set in your .env file
+}
+
+model User {
+  id                      Int                       @id @default(autoincrement())
+  email                   String                    @unique
+  name                    String
+  password_hash           String
+  role                    String
+  created_at              DateTime                  @default(now())
+  updated_at              DateTime                  @updatedAt
+  createdOnboardingTemplates OnboardingTemplate[]      @relation("CreatedOnboardingTemplates")
+  createdTaskTemplates    TaskTemplate[]            @relation("CreatedTaskTemplates")
+  assignedOnboardingInstances OnboardingInstance[]      @relation("AssignedOnboardingInstances")
+  onboardingInstances     OnboardingInstance[]      @relation("UserOnboardingInstances")
+  notifications           Notification[]
+  createdEmailTemplates   EmailTemplate[]
+  auditLogs               AuditLog[]
+  taskComments            TaskComment[]
+  // This allows for dynamic custom fields on the user model
+  customFields            Json?                     @map("custom_fields")
+
+  @@map("users")
+}
+
+model OnboardingTemplate {
+  id                 Int                       @id @default(autoincrement())
+  name               String
+  description        String?
+  created_by         Int
+  creator            User                      @relation("CreatedOnboardingTemplates", fields: [created_by], references: [id])
+  created_at         DateTime                  @default(now())
+  updated_at         DateTime                  @updatedAt
+  tasks              OnboardingTemplateTask[]
+  onboardingInstances OnboardingInstance[]
+
+  @@map("onboarding_templates")
+}
+
+model TaskTemplate {
+  id                     Int                        @id @default(autoincrement())
+  name                   String
+  description            String?
+  instructions           String?
+  task_type              String
+  config                 Json?
+  created_by             Int
+  creator                User                       @relation("CreatedTaskTemplates", fields: [created_by], references: [id])
+  created_at             DateTime                   @default(now())
+  updated_at             DateTime                   @updatedAt
+  onboardingTemplates    OnboardingTemplateTask[]
+  taskInstances          TaskInstance[]
+  dependencies           TaskTemplateDependency[]   @relation("Dependencies")
+  dependencyFor          TaskTemplateDependency[]   @relation("DependencyFor")
+
+  @@map("task_templates")
+}
+
+model OnboardingTemplateTask {
+  onboarding_template_id Int
+  task_template_id       Int
+  order                  Int?
+  onboardingTemplate     OnboardingTemplate         @relation(fields: [onboarding_template_id], references: [id], onDelete: Cascade)
+  taskTemplate           TaskTemplate               @relation(fields: [task_template_id], references: [id], onDelete: Cascade)
+
+  @@id([onboarding_template_id, task_template_id])
+  @@map("onboarding_template_tasks")
+}
+
+model OnboardingInstance {
+  id                     Int                @id @default(autoincrement())
+  user_id                Int
+  user                   User               @relation("UserOnboardingInstances", fields: [user_id], references: [id], onDelete: Cascade)
+  onboarding_template_id Int
+  onboardingTemplate     OnboardingTemplate @relation(fields: [onboarding_template_id], references: [id])
+  status                 String             @default("not_started")
+  assigned_by            Int
+  assigner               User               @relation("AssignedOnboardingInstances", fields: [assigned_by], references: [id])
+  created_at             DateTime           @default(now())
+  updated_at             DateTime           @updatedAt
+  taskInstances          TaskInstance[]
+
+  @@map("onboarding_instances")
+}
+
+model TaskInstance {
+  id                     Int                 @id @default(autoincrement())
+  onboarding_instance_id Int
+  onboardingInstance     OnboardingInstance  @relation(fields: [onboarding_instance_id], references: [id], onDelete: Cascade)
+  task_template_id       Int
+  taskTemplate           TaskTemplate        @relation(fields: [task_template_id], references: [id], onDelete: Cascade)
+  status                 String              @default("not_started")
+  ticket_info            Json?
+  issue_key              String?
+  is_bypassed            Boolean             @default(false)
+  task_started_at        DateTime?
+  task_completed_at      DateTime?
+  ticket_created_at      DateTime?
+  ticket_closed_at       DateTime?
+  created_at             DateTime            @default(now())
+  updated_at             DateTime            @updatedAt
+  comments               TaskComment[]
+
+  @@map("task_instances")
+}
+
+model TaskTemplateDependency {
+  task_template_id Int
+  depends_on_id    Int
+  taskTemplate     TaskTemplate @relation("Dependencies", fields: [task_template_id], references: [id], onDelete: Cascade)
+  dependsOn        TaskTemplate @relation("DependencyFor", fields: [depends_on_id], references: [id], onDelete: Cascade)
+
+  @@id([task_template_id, depends_on_id])
+  @@map("task_template_dependencies")
+}
+
+model Notification {
+  id                  Int       @id @default(autoincrement())
+  user_id             Int
+  user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  title               String
+  message             String
+  type                String
+  is_read             Boolean   @default(false)
+  related_entity_type String?
+  related_entity_id   Int?
+  created_at          DateTime  @default(now())
+
+  @@map("notifications")
+}
+
+model EmailTemplate {
+  id            Int      @id @default(autoincrement())
+  name          String
+  subject       String
+  body_template String
+  created_by    Int
+  creator       User     @relation(fields: [created_by], references: [id])
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+model AuditLog {
+  id                Int       @id @default(autoincrement())
+  user_id           Int?
+  user              User?     @relation(fields: [user_id], references: [id])
+  action            String
+  entity_type       String
+  entity_id         Int?
+  details           Json?
+  ip_address        String?
+  user_agent        String?
+  created_at        DateTime  @default(now())
+
+  @@map("audit_logs")
+}
+
+model TaskComment {
+  id               Int          @id @default(autoincrement())
+  task_instance_id Int
+  taskInstance     TaskInstance @relation(fields: [task_instance_id], references: [id], onDelete: Cascade)
+  user_id          Int
+  user             User         @relation(fields: [user_id], references: [id])
+  comment_text     String
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+
+  @@map("task_comments")
+}

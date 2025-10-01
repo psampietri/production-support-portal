@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import pinoHttp from 'pino-http';
 import logger from '@production-support-portal/logger';
-import { getJiraClients } from './jira-client.js';
+import { getJiraClients, callJiraApi, formatJiraPayload } from './jira-client.js';
 
 dotenv.config({ path: '../../.env' });
 
@@ -24,6 +24,7 @@ app.use('/api/:instanceId', (req, res, next) => {
     }
 });
 
+// --- Generic JQL Search ---
 app.post('/api/:instanceId/jql', async (req, res) => {
     try {
         const response = await req.jira.api.post('/search/jql', req.body);
@@ -33,6 +34,7 @@ app.post('/api/:instanceId/jql', async (req, res) => {
     }
 });
 
+// --- Agile Board Routes (from KPI Portal) ---
 app.get('/api/:instanceId/sprints', async (req, res) => {
     try {
         const { boardId } = req.query;
@@ -126,6 +128,85 @@ app.get('/api/:instanceId/sprint-report', async (req, res) => {
         };
         req.log.error({ err: errorDetails, boardId, sprintId }, '--- Sprint report generation failed ---');
         res.status(error.response?.status || 500).json({ success: false, error: error.response?.data || 'An internal error occurred' });
+    }
+});
+
+// --- Service Desk Routes (from Onboarding Tool) ---
+app.get('/api/:instanceId/servicedesks', async (req, res) => {
+    try {
+        const serviceDesks = await callJiraApi(req.jira.serviceDesk, '/servicedesk');
+        res.json(serviceDesks);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.data || error.message });
+    }
+});
+
+app.get('/api/:instanceId/servicedesks/:serviceDeskId/requesttypes', async (req, res) => {
+    try {
+        const { serviceDeskId } = req.params;
+        const requestTypes = await callJiraApi(req.jira.serviceDesk, `/servicedesk/${serviceDeskId}/requesttype`);
+        res.json(requestTypes);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.data || error.message });
+    }
+});
+
+app.get('/api/:instanceId/servicedesks/:serviceDeskId/requesttypes/:requestTypeId/fields', async (req, res) => {
+    try {
+        const { serviceDeskId, requestTypeId } = req.params;
+        const fields = await callJiraApi(req.jira.serviceDesk, `/servicedesk/${serviceDeskId}/requesttype/${requestTypeId}/field`);
+        res.json(fields);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.data || error.message });
+    }
+});
+
+app.get('/api/:instanceId/requests/:ticketKey', async (req, res) => {
+    try {
+        const { ticketKey } = req.params;
+        const ticketDetails = await callJiraApi(req.jira.serviceDesk, `/request/${ticketKey}`);
+        res.json(ticketDetails);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.data || error.message });
+    }
+});
+
+app.post('/api/:instanceId/requests/create', async (req, res) => {
+    try {
+        const { jiraConfig, user } = req.body;
+        if (!jiraConfig || !user) {
+            return res.status(400).json({ error: 'Missing jiraConfig or user in request body.' });
+        }
+        const requestFieldValues = await formatJiraPayload(req.jira.serviceDesk, jiraConfig.serviceDeskId, jiraConfig.requestTypeId, jiraConfig.fieldMappings, user);
+        const payload = {
+            serviceDeskId: jiraConfig.serviceDeskId,
+            requestTypeId: jiraConfig.requestTypeId,
+            requestFieldValues
+        };
+        const result = await callJiraApi(req.jira.serviceDesk, '/request', 'POST', payload);
+        res.status(201).json(result);
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.data || error.message });
+    }
+});
+
+app.post('/api/:instanceId/requests/dry-run', async (req, res) => {
+    try {
+        const { jiraConfig, user } = req.body;
+        if (!jiraConfig || !user) {
+            return res.status(400).json({ error: 'Missing jiraConfig or user in request body.' });
+        }
+        const requestFieldValues = await formatJiraPayload(req.jira.serviceDesk, jiraConfig.serviceDeskId, jiraConfig.requestTypeId, jiraConfig.fieldMappings, user);
+        res.json({
+            message: "This is a dry run. The following payload would be sent to Jira.",
+            payload: {
+                serviceDeskId: jiraConfig.serviceDeskId,
+                requestTypeId: jiraConfig.requestTypeId,
+                requestFieldValues
+            }
+        });
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.data || error.message });
     }
 });
 
