@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, TextField, Button, List, ListItem, ListItemText, Divider, CircularProgress, Avatar, IconButton, Menu, MenuItem } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { getComments, addComment, updateComment, deleteComment } from '../services/onboardingService';
-import { useNotification } from '../context/NotificationContext';
+import { getComments, addComment, updateComment, deleteComment } from '../../services/onboarding/onboardingService';
+import { useNotification } from '../../context/onboarding/NotificationContext';
 
 const TaskComments = ({ taskId }) => {
     const [comments, setComments] = useState([]);

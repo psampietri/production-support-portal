@@ -3,7 +3,7 @@ import {
     Modal, Box, Typography, List, ListItem, ListItemText, IconButton, TextField, Button
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useNotification } from '../context/NotificationContext';
+import { useNotification } from '../../context/onboarding/NotificationContext';
 
 const style = {
     position: 'absolute',
@@ -25,7 +25,7 @@ const ManageFieldsModal = ({ open, onClose, userFields, onAddField, onDeleteFiel
 
     const handleAddField = async (e) => {
         e.preventDefault();
-        if (!newFieldName) {
+        if (!newFieldName.trim()) {
             showNotification('Field name cannot be empty.', 'warning');
             return;
         }
@@ -34,17 +34,19 @@ const ManageFieldsModal = ({ open, onClose, userFields, onAddField, onDeleteFiel
             showNotification('Field added successfully!', 'success');
             setNewFieldName('');
         } catch (err) {
-            showNotification(err.response?.data?.error || 'Failed to add field.', 'error');
+            const errorMessage = err.response?.data?.error || 'Failed to add field.';
+            showNotification(errorMessage, 'error');
             console.error(err);
         }
     };
 
-    const handleDeleteField = async (fieldName) => {
+    const handleDeleteField = async (fieldKey) => {
         try {
-            await onDeleteField(fieldName);
+            await onDeleteField(fieldKey);
             showNotification('Field deleted successfully!', 'success');
         } catch (err) {
-            showNotification(err.response?.data?.error || 'Failed to delete field.', 'error');
+            const errorMessage = err.response?.data?.error || 'Failed to delete field.';
+            showNotification(errorMessage, 'error');
             console.error(err);
         }
     };
@@ -52,15 +54,16 @@ const ManageFieldsModal = ({ open, onClose, userFields, onAddField, onDeleteFiel
     return (
         <Modal open={open} onClose={onClose}>
             <Box sx={style}>
-                <Typography variant="h6" component="h2">Manage User Fields</Typography>
+                <Typography variant="h6" component="h2">Manage Custom Fields</Typography>
                 <List sx={{ maxHeight: 200, overflow: 'auto', my: 2 }}>
+                    {/* FIX: The component now expects an array of objects */}
                     {userFields.map(field => (
-                        <ListItem key={field} secondaryAction={
-                            <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteField(field)}>
+                        <ListItem key={field.field_key} secondaryAction={
+                            <IconButton edge="end" aria-label="delete" onClick={() => handleDeleteField(field.field_key)}>
                                 <DeleteIcon />
                             </IconButton>
                         }>
-                            <ListItemText primary={field} />
+                            <ListItemText primary={field.label} secondary={field.field_key} />
                         </ListItem>
                     ))}
                 </List>
@@ -68,7 +71,7 @@ const ManageFieldsModal = ({ open, onClose, userFields, onAddField, onDeleteFiel
                     <TextField
                         size="small"
                         fullWidth
-                        label="New Field Name"
+                        label="New Field Label"
                         value={newFieldName}
                         onChange={(e) => setNewFieldName(e.target.value)}
                     />

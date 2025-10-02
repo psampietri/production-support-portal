@@ -1,8 +1,11 @@
 import * as TemplateModel from '../models/templateModel.js';
 import * as OnboardingService from '../../../onboarding-service/src/services/onboardingService.js';
+import prisma from '../../../database/client.js';
 
 export const createOnboardingTemplate = async (templateData) => {
-    return await TemplateModel.createOnboardingTemplate(templateData);
+    return await prisma.$transaction(async (tx) => {
+        return await TemplateModel.createOnboardingTemplate(templateData, tx);
+    });
 };
 
 export const getAllOnboardingTemplates = async () => {
@@ -10,20 +13,23 @@ export const getAllOnboardingTemplates = async () => {
 };
 
 export const getOnboardingTemplateById = async (id) => {
-    return await TemplateModel.findOnboardingTemplateById(id);
+    return await TemplateModel.findOnboardingTemplateById(parseInt(id, 10));
 };
 
 export const deleteOnboardingTemplate = async (id) => {
-    return await TemplateModel.deleteOnboardingTemplate(id);
+    return await TemplateModel.deleteOnboardingTemplate(parseInt(id, 10));
 };
 
 export const duplicateOnboardingTemplate = async (templateId, createdBy) => {
-    return await TemplateModel.duplicateOnboardingTemplate(templateId, createdBy);
+    return await prisma.$transaction(async (tx) => {
+        return await TemplateModel.duplicateOnboardingTemplate(parseInt(templateId, 10), createdBy, tx);
+    });
 };
 
 export const createTaskTemplate = async (templateData) => {
-    // The model function already handles dependencies, so we just pass the data through.
-    return await TemplateModel.createTaskTemplate(templateData);
+    return await prisma.$transaction(async (tx) => {
+        return await TemplateModel.createTaskTemplate(templateData, tx);
+    });
 };
 
 export const getAllTaskTemplates = async () => {
@@ -31,26 +37,32 @@ export const getAllTaskTemplates = async () => {
 };
 
 export const getTaskTemplateById = async (id) => {
-    return await TemplateModel.findTaskTemplateById(id);
+    return await TemplateModel.getTaskTemplateById(parseInt(id, 10));
 };
 
 export const updateTaskTemplate = async (id, templateData) => {
-    // The model function already handles dependencies, so we just pass the data through.
-    return await TemplateModel.updateTaskTemplate(id, templateData);
+    return await prisma.$transaction(async (tx) => {
+        return await TemplateModel.updateTaskTemplate(parseInt(id, 10), templateData, tx);
+    });
 };
 
 export const deleteTaskTemplate = async (id) => {
-    return await TemplateModel.deleteTaskTemplate(id);
+    return await TemplateModel.deleteTaskTemplate(parseInt(id, 10));
 };
 
 export const duplicateTaskTemplate = async (templateId, createdBy) => {
-    return await TemplateModel.duplicateTaskTemplate(templateId, createdBy);
+     return await prisma.$transaction(async (tx) => {
+        return await TemplateModel.duplicateTaskTemplate(parseInt(templateId, 10), createdBy, tx);
+    });
 };
 
 export const updateOnboardingTemplate = async (id, templateData) => {
-    const updatedTemplate = await TemplateModel.updateOnboardingTemplate(id, templateData);
+    const updatedTemplate = await prisma.$transaction(async (tx) => {
+        return await TemplateModel.updateOnboardingTemplate(parseInt(id, 10), templateData, tx);
+    });
     
-    await OnboardingService.syncTemplateChangesToInstances(id, templateData.tasks);
+    // This call should itself be transactional
+    await OnboardingService.syncTemplateChangesToInstances(parseInt(id, 10), templateData.tasks);
     
     return updatedTemplate;
 };

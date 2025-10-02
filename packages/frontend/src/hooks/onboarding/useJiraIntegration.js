@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getServiceDesks, getRequestTypes, getRequestTypeFields } from '../services/integrationService';
-import { getUserFields as fetchUserFields } from '../services/userService';
+import { getServiceDesks, getRequestTypes, getRequestTypeFields } from '../../services/onboarding/integrationService';
+import { getUserFields as fetchUserFields } from '../../services/onboarding/userService';
 
 const useJiraIntegration = (taskType, serviceDeskId, requestTypeId) => {
     const [serviceDesks, setServiceDesks] = useState([]);

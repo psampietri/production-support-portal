@@ -1,16 +1,19 @@
-import api from './api';
+import api from '../api'; // Correct path to the central api instance
 
 export const getUserFields = async () => {
-    const response = await api.get('/users/fields');
+    // FIX: Add the /api/ prefix
+    const response = await api.get('/api/users/fields');
     return response.data;
 };
 
 export const addUserField = async (fieldName) => {
-    const response = await api.post('/users/fields', { fieldName });
+    // FIX: Add the /api/ prefix
+    const response = await api.post('/api/users/fields', { fieldName });
     return response.data;
 };
 
 export const deleteUserField = async (fieldName) => {
-    const response = await api.delete(`/users/fields/${fieldName}`);
+    // FIX: Add the /api/ prefix
+    const response = await api.delete(`/api/users/fields/${fieldName}`);
     return response.data;
 };

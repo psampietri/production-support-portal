@@ -10,7 +10,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import api from '../services/api';
+import api from '../../services/api';
 
 const NotificationCenter = () => {
     const [notifications, setNotifications] = useState([]);

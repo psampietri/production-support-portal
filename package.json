@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "install-all": "npm install --workspaces",
+    "postinstall": "prisma generate",
     "start:backend": "concurrently \"npm:start:backend:*\"",
     "start:backend:gateway": "npm start --workspace=api-gateway",
     "start:backend:jira": "npm start --workspace=jira-service",
@@ -18,6 +19,9 @@
     "start:backend:analytics": "npm start --workspace=analytics-service",
     "start:frontend": "npm run dev --workspace=frontend",
     "db:migrate": "npx prisma migrate dev --schema=./packages/database/prisma/schema.prisma"
+  },
+  "prisma": {
+    "schema": "packages/database/prisma/schema.prisma"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

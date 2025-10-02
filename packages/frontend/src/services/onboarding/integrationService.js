@@ -1,4 +1,4 @@
-import api from './api';
+import api from '../api';
 
 export const getServiceDesks = async (platform, configKey) => {
     const response = await api.get(`/integrations/${platform}/servicedesks`, { params: { configKey } });

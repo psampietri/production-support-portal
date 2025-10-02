@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Container, Typography, CircularProgress, Box
 } from '@mui/material';
-import api from '../../services/api';
-import { useNotification } from '../../context/NotificationContext';
-import OnboardingTemplatesTable from '../../components/OnboardingTemplatesTable';
-import TaskTemplatesTable from '../../components/TaskTemplatesTable';
+import api from '../../../services/api';
+import { useNotification } from '../../../context/onboarding/NotificationContext';
+import OnboardingTemplatesTable from '../../../components/onboarding/OnboardingTemplatesTable';
+import TaskTemplatesTable from '../../../components/onboarding/TaskTemplatesTable';
 
 const ManageTemplates = () => {
     const [taskTemplates, setTaskTemplates] = useState([]);
@@ -15,7 +15,8 @@ const ManageTemplates = () => {
     const fetchTaskTemplates = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await api.get('/templates/tasks');
+            // FIX: Add /api/ prefix to the path
+            const response = await api.get('/api/templates/tasks');
             setTaskTemplates(response.data);
         } catch (error) {
             showNotification("Failed to fetch task templates.", 'error');

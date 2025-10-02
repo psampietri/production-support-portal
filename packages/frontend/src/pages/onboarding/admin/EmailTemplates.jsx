@@ -7,8 +7,8 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import api from '../../services/api';
-import { useNotification } from '../../context/NotificationContext';
+import api from '../../../services/api';
+import { useNotification } from '../../../context/onboarding/NotificationContext';
 
 const EmailTemplates = () => {
     const [templates, setTemplates] = useState([]);

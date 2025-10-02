@@ -3,7 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
+  output   = "../../../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -178,4 +178,12 @@ model TaskComment {
   updated_at       DateTime     @updatedAt
 
   @@map("task_comments")
+}
+
+model UserCustomField {
+  id        Int      @id @default(autoincrement())
+  field_key String   @unique
+  label     String
+  
+  @@map("user_custom_fields")
 }

@@ -3,19 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     Container, Typography, Box, CircularProgress, Alert
 } from '@mui/material';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers';
-import api from '../../services/api';
-import { executeAutomatedTask, dryRunAutomatedTask, updateOnboardingInstance, deleteOnboardingInstance, updateTaskStatus, unassignTicket } from '../../services/onboardingService';
-import { getTicketDetails } from '../../services/integrationService';
-import { useNotification } from '../../context/NotificationContext';
+import api from '../../../services/api';
+import { executeAutomatedTask, dryRunAutomatedTask, updateOnboardingInstance, deleteOnboardingInstance, updateTaskStatus, unassignTicket } from '../../../services/onboarding/onboardingService';
+import { getTicketDetails } from '../../../services/onboarding/integrationService';
+import { useNotification } from '../../../context/onboarding/NotificationContext';
 
-import OnboardingInstanceHeader from '../../components/OnboardingInstanceHeader';
-import OnboardingTaskTree from '../../components/OnboardingTaskTree';
-import TicketModal from '../../components/TicketModal';
-import DryRunModal from '../../components/DryRunModal';
-import DeleteInstanceDialog from '../../components/DeleteInstanceDialog';
-import TaskDetailModal from '../../components/TaskDetailModal';
+import OnboardingInstanceHeader from '../../../components/onboarding/OnboardingInstanceHeader';
+import OnboardingTaskTree from '../../../components/onboarding/OnboardingTaskTree';
+import TicketModal from '../../../components/onboarding/TicketModal';
+import DryRunModal from '../../../components/onboarding/DryRunModal';
+import DeleteInstanceDialog from '../../../components/onboarding/DeleteInstanceDialog';
+import TaskDetailModal from '../../../components/onboarding/TaskDetailModal';
 
 
 // Custom hook to get the previous value of a prop or state.

@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
-import { getUserFields as fetchUserFields, addUserField, deleteUserField } from '../services/userService';
+import api from '../../services/api';
+import { 
+    getUserFields as fetchUserFields, 
+    addUserField as postUserField, 
+    deleteUserField as removeUserField 
+} from '../../services/onboarding/userService';
 
 const useUserManagement = () => {
     const [users, setUsers] = useState([]);
@@ -11,8 +15,9 @@ const useUserManagement = () => {
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
+            setError('');
             const [usersRes, fieldsRes] = await Promise.all([
-                api.get('/users'),
+                api.get('/api/users'),
                 fetchUserFields()
             ]);
             setUsers(usersRes.data);
@@ -30,26 +35,36 @@ const useUserManagement = () => {
     }, [fetchData]);
 
     const handleAddField = async (fieldName) => {
-        await addUserField(fieldName);
+        await postUserField(fieldName);
         fetchData();
     };
 
-    const handleDeleteField = async (fieldName) => {
-        await deleteUserField(fieldName);
+    const handleDeleteField = async (fieldKey) => {
+        await removeUserField(fieldKey);
         fetchData();
     };
 
     const saveUser = async (user, isEditing) => {
+        const payload = { ...user };
+        // Ensure customFields is a valid object
+        if (payload.customFields && typeof payload.customFields === 'string') {
+            try {
+                payload.customFields = JSON.parse(payload.customFields);
+            } catch (e) {
+                throw new Error('Custom fields is not valid JSON.');
+            }
+        }
+        
         if (isEditing) {
-            await api.put(`/users/${user.id}`, user);
+            await api.put(`/api/users/${user.id}`, payload);
         } else {
-            await api.post('/auth/register', user);
+            await api.post('/api/users/register', payload);
         }
         fetchData();
     };
 
     const deleteUserById = async (userId, newOwnerId) => {
-        await api.delete(`/users/${userId}`, { data: { newOwnerId } });
+        await api.delete(`/api/users/${userId}`, { data: { newOwnerId } });
         fetchData();
     };
 

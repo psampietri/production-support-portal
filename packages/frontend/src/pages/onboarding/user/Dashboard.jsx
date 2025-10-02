@@ -13,9 +13,9 @@ import LockIcon from '@mui/icons-material/Lock';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
-import { getActiveOnboardingForUser, updateTaskStatus, getOnboardingStatusForUser } from '../../services/onboardingService';
-import { useNotification } from '../../context/NotificationContext';
-import TaskComments from '../../components/TaskComments';
+import { getActiveOnboardingForUser, updateTaskStatus, getOnboardingStatusForUser } from '../../../services/onboarding/onboardingService';
+import { useNotification } from '../../../context/onboarding/NotificationContext';
+import TaskComments from '../../../components/onboarding/TaskComments';
 
 const style = {
     position: 'absolute',

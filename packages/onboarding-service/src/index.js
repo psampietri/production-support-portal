@@ -1,11 +1,11 @@
 import express from 'express';
 import cors from 'cors';
-import pool from '../../database/client.js'
+import prisma from '../../database/client.js'; // Use Prisma client
 import onboardingRoutes from './api/onboardingRoutes.js';
 import logger from '@production-support-portal/logger';
 
 const app = express();
-const PORT = process.env.PORT || 5003;
+const PORT = process.env.ONBOARDING_SERVICE_PORT || 5003;
 
 app.use(cors());
 app.use(express.json());
@@ -14,9 +14,8 @@ app.use('/', onboardingRoutes);
 
 const startServer = async () => {
     try {
-        const client = await pool.connect();
+        await prisma.$connect();
         logger.info('Database connection verified for onboarding-service.');
-        client.release();
 
         app.listen(PORT, () => {
             logger.info(`onboarding-service listening on port ${PORT}`);

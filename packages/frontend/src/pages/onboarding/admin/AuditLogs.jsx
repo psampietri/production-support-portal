@@ -11,10 +11,10 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
-import auditService from '../../services/auditService';
-import { useNotification } from '../../context/NotificationContext';
+import auditService from '../../../services/onboarding/auditService';
+import { useNotification } from '../../../context/onboarding/NotificationContext';
 
 const AuditLogs = () => {
     const [logs, setLogs] = useState([]);

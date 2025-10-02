@@ -21,8 +21,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, 
     ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
-import api from '../../services/api';
-import { useNotification } from '../../context/NotificationContext';
+import api from '../../../services/api';
+import { useNotification } from '../../../context/onboarding/NotificationContext';
 
 const style = {
     position: 'absolute',
@@ -109,11 +109,11 @@ const AdminDashboard = () => {
         try {
             setLoading(true);
             const [instancesRes, usersRes, templatesRes, kpisRes, chartsRes] = await Promise.all([
-                api.get('/onboarding/instances'),
-                api.get('/users'),
-                api.get('/templates/onboarding'),
-                api.get('/analytics/kpis'),
-                api.get('/analytics/charts')
+                api.get('/api/onboarding/instances'),
+                api.get('/api/users'),
+                api.get('/api/templates/onboarding'),
+                api.get('/api/analytics/kpis'),
+                api.get('/api/analytics/charts')
             ]);
             
             const instancesData = instancesRes.data;
@@ -187,7 +187,7 @@ const AdminDashboard = () => {
         handleCloseDialog();
         try {
             const currentUser = JSON.parse(localStorage.getItem('user'));
-            await api.post('/onboarding/instances', {
+            await api.post('/api/onboarding/instances', {
                 userId: assignment.userId,
                 templateId: assignment.templateId,
                 assignedBy: currentUser.id

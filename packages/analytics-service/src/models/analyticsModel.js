@@ -1,54 +1,46 @@
-import { pool } from '../../../database/client.js'
+import prisma from '../../../database/client.js';
 
 export const getAverageCompletionTime = async () => {
-    const { rows } = await pool.query(
-        `SELECT
-            EXTRACT(EPOCH FROM AVG(updated_at - created_at)) / 3600 as avg_hours
-         FROM onboarding_instances
-         WHERE status = 'completed'`
-    );
-    return rows[0]?.avg_hours ? parseFloat(rows[0].avg_hours) : null;
+    const result = await prisma.$queryRaw`
+        SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at))) as avg_epoch
+        FROM onboarding_instances
+        WHERE status = 'completed'`;
+
+    return result[0]?.avg_epoch || null;
 };
 
 export const countActiveOnboardings = async () => {
-    const { rows } = await pool.query(
-        "SELECT COUNT(*) FROM onboarding_instances WHERE status = 'in_progress'"
-    );
-    return parseInt(rows[0].count, 10);
-};
-
-export const countCompletedOnboardings = async () => {
-    const { rows } = await pool.query(
-        "SELECT COUNT(*) FROM onboarding_instances WHERE status = 'completed'"
-    );
-    return parseInt(rows[0].count, 10);
+    return await prisma.onboardingInstance.count({
+        where: { status: 'in_progress' },
+    });
 };
 
 export const countTotalUsers = async () => {
-    const { rows } = await pool.query("SELECT COUNT(*) FROM users");
-    return parseInt(rows[0].count, 10);
+    return await prisma.user.count();
 };
 
 export const getStatusDistribution = async () => {
-    const { rows } = await pool.query(
-        `SELECT status as name, COUNT(*) as value FROM onboarding_instances GROUP BY status`
-    );
-    return rows;
+    return await prisma.onboardingInstance.groupBy({
+        by: ['status'],
+        _count: {
+            status: true,
+        },
+    });
 };
 
 export const getTaskTypeDistribution = async () => {
-    const { rows } = await pool.query(
-        `SELECT tt.task_type as name, COUNT(ti.id) as value
-         FROM task_instances ti
-         JOIN task_templates tt ON ti.task_template_id = tt.id
-         GROUP BY tt.task_type`
-    );
-    return rows;
+    // FIX: Corrected the groupBy query to be valid in Prisma
+    return await prisma.taskTemplate.groupBy({
+        by: ['task_type'],
+        _count: {
+            _all: true,
+        },
+    });
 };
 
 export const getCompletionTrend = async () => {
-    const { rows } = await pool.query(
-        `WITH date_series AS (
+    return await prisma.$queryRaw`
+        WITH date_series AS (
             SELECT generate_series(
                 CURRENT_DATE - interval '13 days',
                 CURRENT_DATE,
@@ -57,8 +49,8 @@ export const getCompletionTrend = async () => {
         )
         SELECT
             to_char(ds.day, 'Mon DD') as date,
-            COALESCE(s.started_count, 0) AS started,
-            COALESCE(c.completed_count, 0) AS completed
+            COALESCE(s.started_count, 0)::int AS started,
+            COALESCE(c.completed_count, 0)::int AS completed
         FROM date_series ds
         LEFT JOIN (
             SELECT created_at::date AS day, COUNT(*) AS started_count
@@ -72,7 +64,29 @@ export const getCompletionTrend = async () => {
             WHERE status = 'completed' AND updated_at >= CURRENT_DATE - interval '13 days'
             GROUP BY day
         ) c ON ds.day = c.day
-        ORDER BY ds.day;`
-    );
-    return rows;
+        ORDER BY ds.day;`;
+};
+
+export const getAverageTaskLeadTime = async () => {
+    const result = await prisma.$queryRaw`
+        SELECT AVG(EXTRACT(EPOCH FROM (task_completed_at - task_started_at))) as avg_epoch
+        FROM task_instances
+        WHERE status = 'completed' AND task_started_at IS NOT NULL AND task_completed_at IS NOT NULL`;
+
+    return result[0]?.avg_epoch || null;
+};
+
+export const getAverageTicketLeadTime = async () => {
+    const result = await prisma.$queryRaw`
+        SELECT AVG(EXTRACT(EPOCH FROM (ticket_closed_at - ticket_created_at))) as avg_epoch
+        FROM task_instances
+        WHERE ticket_info IS NOT NULL AND ticket_created_at IS NOT NULL AND ticket_closed_at IS NOT NULL`;
+
+    return result[0]?.avg_epoch || null;
+};
+
+export const countOnboardingInstancesByStatus = async (status) => {
+    return await prisma.onboardingInstance.count({
+        where: { status },
+    });
 };

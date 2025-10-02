@@ -1,4 +1,4 @@
-import api from './api';
+import api from '../api';
 
 export const getAuditLogs = async (filters = {}) => {
     const queryParams = new URLSearchParams();

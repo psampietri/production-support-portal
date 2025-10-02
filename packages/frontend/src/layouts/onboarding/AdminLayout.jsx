@@ -11,7 +11,7 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import EmailIcon from '@mui/icons-material/Email';
 import HistoryIcon from '@mui/icons-material/History';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import NotificationCenter from '../components/NotificationCenter';
+import NotificationCenter from '../../components/onboarding/NotificationCenter';
 
 const navItems = [
     { text: 'Dashboard', icon: <DashboardIcon color="primary" />, path: '/admin/dashboard' },

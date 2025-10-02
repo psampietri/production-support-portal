@@ -1,5 +1,14 @@
 import { Router } from 'express';
-import { getAllUsers, getUserById, updateUser, deleteUser, getUserFields, addUserField, deleteUserField } from '../services/userService.js';
+// FIX: Import the correctly named functions
+import { 
+    getAllUsers, 
+    getUserById, 
+    updateUser, 
+    deleteUser, 
+    findUserCustomFields, 
+    addUserCustomField, 
+    deleteUserCustomField 
+} from '../services/userService.js';
 
 const router = Router();
 
@@ -7,7 +16,8 @@ const router = Router();
 
 router.get('/fields', async (req, res) => {
     try {
-        const fields = await getUserFields();
+        // FIX: Use the correct function name
+        const fields = await findUserCustomFields();
         res.json(fields);
     } catch (error) {
         res.status(500).json({ error: 'Failed to retrieve user fields.' });
@@ -17,18 +27,20 @@ router.get('/fields', async (req, res) => {
 router.post('/fields', async (req, res) => {
     try {
         const { fieldName } = req.body;
-        await addUserField(fieldName);
-        res.status(201).json({ message: `Field '${fieldName}' added successfully.` });
+        // FIX: Use the correct function name
+        const newField = await addUserCustomField(fieldName);
+        res.status(201).json(newField);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
 });
 
-router.delete('/fields/:fieldName', async (req, res) => {
+router.delete('/fields/:fieldKey', async (req, res) => {
     try {
-        const { fieldName } = req.params;
-        await deleteUserField(fieldName);
-        res.status(200).json({ message: `Field '${fieldName}' deleted successfully.` });
+        const { fieldKey } = req.params;
+        // FIX: Use the correct function name
+        await deleteUserCustomField(fieldKey);
+        res.status(200).json({ message: `Field '${fieldKey}' deleted successfully.` });
     } catch (error) {
         res.status(400).json({ error: error.message });
     }

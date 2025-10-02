@@ -1,100 +1,115 @@
-import { pool } from '../../../database/client.js'
+import prisma from '../../../database/client.js';
 
 export const createNotification = async (userId, title, message, type, relatedEntityType = null, relatedEntityId = null) => {
-    const { rows } = await pool.query(
-        `INSERT INTO notifications (user_id, title, message, type, related_entity_type, related_entity_id) 
-         VALUES ($1, $2, $3, $4, $5, $6) 
-         RETURNING *`,
-        [userId, title, message, type, relatedEntityType, relatedEntityId]
-    );
-    return rows[0];
+    return await prisma.notification.create({
+        data: {
+            user_id: userId,
+            title,
+            message,
+            type,
+            related_entity_type: relatedEntityType,
+            related_entity_id: relatedEntityId,
+        },
+    });
 };
 
 export const getUserNotifications = async (userId, limit = 20, offset = 0) => {
-    const { rows } = await pool.query(
-        `SELECT * FROM notifications 
-         WHERE user_id = $1 
-         ORDER BY created_at DESC
-         LIMIT $2 OFFSET $3`,
-        [userId, limit, offset]
-    );
-    return rows;
+    return await prisma.notification.findMany({
+        where: { user_id: userId },
+        orderBy: {
+            created_at: 'desc',
+        },
+        take: limit,
+        skip: offset,
+    });
 };
 
 export const getUserUnreadCount = async (userId) => {
-    const { rows } = await pool.query(
-        `SELECT COUNT(*) as count FROM notifications 
-         WHERE user_id = $1 AND is_read = false`,
-        [userId]
-    );
-    return parseInt(rows[0].count);
+    return await prisma.notification.count({
+        where: {
+            user_id: userId,
+            is_read: false,
+        },
+    });
 };
 
 export const markAsRead = async (notificationId, userId) => {
-    const { rows } = await pool.query(
-        `UPDATE notifications 
-         SET is_read = true 
-         WHERE id = $1 AND user_id = $2
-         RETURNING *`,
-        [notificationId, userId]
-    );
-    return rows[0];
+    // Using updateMany to ensure we only update if the user ID matches
+    const { count } = await prisma.notification.updateMany({
+        where: {
+            id: notificationId,
+            user_id: userId,
+        },
+        data: {
+            is_read: true,
+        },
+    });
+    // Return the updated record if one was found and updated
+    return count > 0 ? prisma.notification.findUnique({ where: { id: notificationId } }) : null;
 };
 
 export const markAllAsRead = async (userId) => {
-    const { rows } = await pool.query(
-        `UPDATE notifications 
-         SET is_read = true 
-         WHERE user_id = $1 AND is_read = false
-         RETURNING *`,
-        [userId]
-    );
-    return rows;
+    return await prisma.notification.updateMany({
+        where: {
+            user_id: userId,
+            is_read: false,
+        },
+        data: {
+            is_read: true,
+        },
+    });
 };
 
 export const deleteNotification = async (notificationId, userId) => {
-    const { rows } = await pool.query(
-        `DELETE FROM notifications 
-         WHERE id = $1 AND user_id = $2
-         RETURNING *`,
-        [notificationId, userId]
-    );
-    return rows[0];
+    // Using deleteMany to ensure we only delete if the user ID matches
+    return await prisma.notification.deleteMany({
+        where: {
+            id: notificationId,
+            user_id: userId,
+        },
+    });
 };
 
-// Email template management
+// --- Email template management ---
+
 export const createEmailTemplate = async (name, subject, bodyTemplate, createdBy) => {
-    const { rows } = await pool.query(
-        `INSERT INTO email_templates (name, subject, body_template, created_by) 
-         VALUES ($1, $2, $3, $4) 
-         RETURNING *`,
-        [name, subject, bodyTemplate, createdBy]
-    );
-    return rows[0];
+    return await prisma.emailTemplate.create({
+        data: {
+            name,
+            subject,
+            body_template: bodyTemplate,
+            created_by: createdBy,
+        },
+    });
 };
 
 export const getAllEmailTemplates = async () => {
-    const { rows } = await pool.query('SELECT * FROM email_templates ORDER BY name');
-    return rows;
+    return await prisma.emailTemplate.findMany({
+        orderBy: {
+            name: 'asc',
+        },
+    });
 };
 
 export const getEmailTemplateById = async (id) => {
-    const { rows } = await pool.query('SELECT * FROM email_templates WHERE id = $1', [id]);
-    return rows[0];
+    return await prisma.emailTemplate.findUnique({
+        where: { id },
+    });
 };
 
 export const updateEmailTemplate = async (id, name, subject, bodyTemplate) => {
-    const { rows } = await pool.query(
-        `UPDATE email_templates 
-         SET name = $2, subject = $3, body_template = $4, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-         RETURNING *`,
-        [id, name, subject, bodyTemplate]
-    );
-    return rows[0];
+    return await prisma.emailTemplate.update({
+        where: { id },
+        data: {
+            name,
+            subject,
+            body_template: bodyTemplate,
+        },
+    });
 };
 
 export const deleteEmailTemplate = async (id) => {
-    const { rows } = await pool.query('DELETE FROM email_templates WHERE id = $1 RETURNING *', [id]);
-    return rows[0];
+    return await prisma.emailTemplate.delete({
+        where: { id },
+    });
 };

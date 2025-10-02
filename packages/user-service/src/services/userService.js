@@ -1,5 +1,5 @@
 import * as UserModel from '../models/userModel.js';
-import pool from '../../../database/client.js'
+import prisma from '../../../database/client.js';
 
 export const getAllUsers = async () => {
     return await UserModel.findAllUsers();
@@ -14,36 +14,41 @@ export const updateUser = async (id, userData) => {
 };
 
 export const deleteUser = async (id, newOwnerId) => {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
+    return await prisma.$transaction(async (tx) => {
+        const userId = parseInt(id, 10);
+        const ownerId = parseInt(newOwnerId, 10);
 
-        // Reassign assets to the new owner
-        await client.query('UPDATE onboarding_templates SET created_by = $1 WHERE created_by = $2', [newOwnerId, id]);
-        await client.query('UPDATE task_templates SET created_by = $1 WHERE created_by = $2', [newOwnerId, id]);
-        await client.query('UPDATE onboarding_instances SET assigned_by = $1 WHERE assigned_by = $2', [newOwnerId, id]);
-        await client.query('UPDATE email_templates SET created_by = $1 WHERE created_by = $2', [newOwnerId, id]);
+        await tx.onboardingTemplate.updateMany({
+            where: { created_by: userId },
+            data: { created_by: ownerId },
+        });
+        await tx.taskTemplate.updateMany({
+            where: { created_by: userId },
+            data: { created_by: ownerId },
+        });
+        await tx.onboardingInstance.updateMany({
+            where: { assigned_by: userId },
+            data: { assigned_by: ownerId },
+        });
+        await tx.emailTemplate.updateMany({
+            where: { created_by: userId },
+            data: { created_by: ownerId },
+        });
         
-        // Now it's safe to delete the user within the same transaction
-        await UserModel.deleteUser(id, client);
-
-        await client.query('COMMIT');
-    } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-    } finally {
-        client.release();
-    }
+        await UserModel.deleteUser(userId, tx);
+    });
 };
 
-export const getUserFields = async () => {
-    return await UserModel.findUserFields();
+// --- Custom Field Management ---
+
+export const findUserCustomFields = async () => {
+    return await UserModel.findUserCustomFields();
 };
 
-export const addUserField = async (fieldName) => {
-    return await UserModel.addUserField(fieldName);
+export const addUserCustomField = async (fieldName) => {
+    return await UserModel.addUserCustomField(fieldName);
 };
 
-export const deleteUserField = async (fieldName) => {
-    return await UserModel.deleteUserField(fieldName);
+export const deleteUserCustomField = async (fieldKey) => {
+    return await UserModel.deleteUserCustomField(fieldKey);
 };

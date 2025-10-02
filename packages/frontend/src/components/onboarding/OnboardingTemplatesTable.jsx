@@ -9,8 +9,8 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import api from '../services/api';
-import { useNotification } from '../context/NotificationContext';
+import api from '../../services/api';
+import { useNotification } from '../../context/onboarding/NotificationContext';
 
 const style = {
     position: 'absolute',
@@ -37,7 +37,8 @@ const OnboardingTemplatesTable = ({ taskTemplates }) => {
     const fetchOnboardingTemplates = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/templates/onboarding');
+            // FIX: Add /api/ prefix
+            const response = await api.get('/api/templates/onboarding');
             setOnboardingTemplates(response.data);
         } catch (err) {
             showNotification('Failed to fetch onboarding templates.', 'error');
@@ -60,7 +61,8 @@ const OnboardingTemplatesTable = ({ taskTemplates }) => {
     const handleOpenEditModal = async (template) => {
         setIsEditing(true);
         try {
-            const response = await api.get(`/templates/onboarding/${template.id}`);
+            // FIX: Add /api/ prefix
+            const response = await api.get(`/api/templates/onboarding/${template.id}`);
             setCurrentTemplate(response.data);
             setSelectedTasks(response.data.tasks || []);
             setModalOpen(true);
@@ -94,13 +96,15 @@ const OnboardingTemplatesTable = ({ taskTemplates }) => {
             const currentUser = JSON.parse(localStorage.getItem('user'));
             const payload = {
                 ...currentTemplate,
-                created_by: currentUser.id, // Should be handled by backend
+                created_by: currentUser.id,
                 tasks: selectedTasks.map((taskId, index) => ({ id: taskId, order: index + 1 }))
             };
             if (isEditing) {
-                await api.put(`/templates/onboarding/${currentTemplate.id}`, payload);
+                // FIX: Add /api/ prefix
+                await api.put(`/api/templates/onboarding/${currentTemplate.id}`, payload);
             } else {
-                await api.post('/templates/onboarding', payload);
+                // FIX: Add /api/ prefix
+                await api.post('/api/templates/onboarding', payload);
             }
             showNotification(`Onboarding template ${isEditing ? 'updated' : 'created'} successfully!`, 'success');
             handleCloseModal();
@@ -113,7 +117,8 @@ const OnboardingTemplatesTable = ({ taskTemplates }) => {
 
     const handleDeleteTemplate = async () => {
         try {
-            await api.delete(`/templates/onboarding/${currentTemplate.id}`);
+            // FIX: Add /api/ prefix
+            await api.delete(`/api/templates/onboarding/${currentTemplate.id}`);
             showNotification('Onboarding template deleted successfully!', 'success');
             handleCloseDialog();
             fetchOnboardingTemplates();
@@ -126,7 +131,8 @@ const OnboardingTemplatesTable = ({ taskTemplates }) => {
     const handleDuplicateTemplate = async (templateId) => {
         try {
             const currentUser = JSON.parse(localStorage.getItem('user'));
-            const response = await api.post(`/templates/onboarding/${templateId}/duplicate`, { created_by: currentUser.id });
+            // FIX: Add /api/ prefix
+            const response = await api.post(`/api/templates/onboarding/${templateId}/duplicate`, { created_by: currentUser.id });
             
             setOnboardingTemplates(prev => [...prev, response.data]);
             showNotification('Onboarding template duplicated successfully!', 'success');

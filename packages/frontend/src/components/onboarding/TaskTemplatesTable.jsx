@@ -9,9 +9,9 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import api from '../services/api';
-import useJiraIntegration from '../hooks/useJiraIntegration';
-import { useNotification } from '../context/NotificationContext';
+import api from '../../services/api';
+import useJiraIntegration from '../../hooks/onboarding/useJiraIntegration';
+import { useNotification } from '../../context/onboarding/NotificationContext';
 import RichTextEditor from './RichTextEditor';
 
 const style = {

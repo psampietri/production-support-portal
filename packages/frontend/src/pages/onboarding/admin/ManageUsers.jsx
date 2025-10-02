@@ -3,20 +3,20 @@ import {
     Container, Typography, Paper, TableContainer, Table, TableHead,
     TableRow, TableCell, TableBody, CircularProgress, Box, Button,
     Modal, TextField, FormControl, InputLabel, Select, MenuItem, IconButton,
-    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle
+    Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Divider
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import useUserManagement from '../../hooks/useUserManagement';
-import ManageFieldsModal from '../../components/ManageFieldsModal';
-import { useNotification } from '../../context/NotificationContext';
+import useUserManagement from '../../../hooks/onboarding/useUserManagement';
+import ManageFieldsModal from '../../../components/onboarding/ManageFieldsModal';
+import { useNotification } from '../../../context/onboarding/NotificationContext';
 
 const style = {
     position: 'absolute',
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    width: 400,
+    width: 600,
     bgcolor: 'background.paper',
     border: '2px solid #000',
     boxShadow: 24,
@@ -27,7 +27,7 @@ const style = {
 
 const ManageUsers = () => {
     const {
-        users, userFields, loading, error, setError,
+        users, userFields, loading, error,
         handleAddField, handleDeleteField, saveUser, deleteUserById
     } = useUserManagement();
     
@@ -44,7 +44,7 @@ const ManageUsers = () => {
 
     const handleOpenCreateModal = () => {
         setIsEditing(false);
-        setCurrentUser({ role: 'user' });
+        setCurrentUser({ name: '', email: '', role: 'user', customFields: {} });
         setModalOpen(true);
     };
 
@@ -67,9 +67,20 @@ const ManageUsers = () => {
         setDialogOpen(false);
     };
 
-    const handleInputChange = (e) => {
+    const handleCoreInputChange = (e) => {
         const { name, value } = e.target;
         setCurrentUser(prevState => ({ ...prevState, [name]: value }));
+    };
+    
+    const handleCustomFieldChange = (e) => {
+        const { name, value } = e.target;
+        setCurrentUser(prev => ({
+            ...prev,
+            customFields: {
+                ...prev.customFields,
+                [name]: value,
+            }
+        }));
     };
 
     const handleSaveUser = async (e) => {
@@ -106,16 +117,15 @@ const ManageUsers = () => {
 
     if (error) {
         showNotification(error, 'error');
+        return <Typography color="error">{error}</Typography>;
     }
 
     return (
-        <Container maxWidth="lg">
+        <Container maxWidth="xl">
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-                <Typography variant="h4">
-                    Manage Users
-                </Typography>
+                <Typography variant="h4">Manage Users</Typography>
                 <Box>
-                    <Button variant="outlined" sx={{ mr: 2 }} onClick={() => setFieldsModalOpen(true)}>Manage Fields</Button>
+                    <Button variant="outlined" sx={{ mr: 2 }} onClick={() => setFieldsModalOpen(true)}>Manage Custom Fields</Button>
                     <Button variant="contained" onClick={handleOpenCreateModal}>Add User</Button>
                 </Box>
             </Box>
@@ -124,14 +134,26 @@ const ManageUsers = () => {
                 <Table sx={{ minWidth: 650 }}>
                     <TableHead>
                         <TableRow>
-                            {userFields.map(field => <TableCell key={field}>{field}</TableCell>)}
+                            <TableCell>ID</TableCell>
+                            <TableCell>Name</TableCell>
+                            <TableCell>Email</TableCell>
+                            <TableCell>Role</TableCell>
+                            {userFields.map(field => <TableCell key={field.field_key}>{field.label}</TableCell>)}
                             <TableCell align="right">Actions</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {users.map((user) => (
-                            <TableRow key={user.id}>
-                                {userFields.map(field => <TableCell key={`${user.id}-${field}`}>{user[field] || ''}</TableCell>)}
+                            <TableRow key={user.id} hover>
+                                <TableCell>{user.id}</TableCell>
+                                <TableCell>{user.name}</TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                <TableCell>{user.role}</TableCell>
+                                {userFields.map(field => (
+                                    <TableCell key={`${user.id}-${field.field_key}`}>
+                                        {user.customFields ? user.customFields[field.field_key] || '' : ''}
+                                    </TableCell>
+                                ))}
                                 <TableCell align="right">
                                     <IconButton onClick={() => handleOpenEditModal(user)}><EditIcon /></IconButton>
                                     <IconButton onClick={() => handleOpenDialog(user)}><DeleteIcon /></IconButton>
@@ -144,50 +166,32 @@ const ManageUsers = () => {
 
             <Modal open={modalOpen} onClose={handleCloseModal}>
                 <Box sx={style} component="form" onSubmit={handleSaveUser}>
-                    <Typography variant="h6" component="h2">
-                        {isEditing ? 'Edit User' : 'Create New User'}
-                    </Typography>
-                    
-                    {userFields.filter(field => !['id', 'created_at', 'updated_at', 'role'].includes(field)).map(field => (
-                        <TextField
-                            key={field}
-                            margin="normal"
-                            required={!isEditing || ['name', 'email'].includes(field)}
-                            fullWidth
-                            label={field.charAt(0).toUpperCase() + field.slice(1)}
-                            name={field}
-                            value={currentUser?.[field] || ''}
-                            onChange={handleInputChange}
-                        />
-                    ))}
-
+                    <Typography variant="h6" component="h2">{isEditing ? 'Edit User' : 'Create New User'}</Typography>
+                    <TextField margin="normal" required fullWidth label="Name" name="name" value={currentUser?.name || ''} onChange={handleCoreInputChange} />
+                    <TextField margin="normal" required fullWidth label="Email" name="email" type="email" value={currentUser?.email || ''} onChange={handleCoreInputChange} />
                     {!isEditing && (
-                        <TextField
-                            margin="normal"
-                            required
-                            fullWidth
-                            label="Password"
-                            name="password"
-                            type="password"
-                            value={currentUser?.password || ''}
-                            onChange={handleInputChange}
-                        />
+                        <TextField margin="normal" required fullWidth label="Password" name="password" type="password" value={currentUser?.password || ''} onChange={handleCoreInputChange} />
                     )}
-
                     <FormControl fullWidth margin="normal">
                         <InputLabel>Role</InputLabel>
-                        <Select
-                            name="role"
-                            value={currentUser?.role || 'user'}
-                            label="Role"
-                            onChange={handleInputChange}
-                        >
+                        <Select name="role" value={currentUser?.role || 'user'} label="Role" onChange={handleCoreInputChange}>
                             <MenuItem value="user">User</MenuItem>
                             <MenuItem value="admin">Admin</MenuItem>
                         </Select>
                     </FormControl>
-                    
-                    <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Divider sx={{ my: 2 }}>Custom Fields</Divider>
+                    {userFields.map(field => (
+                        <TextField
+                            key={field.field_key}
+                            margin="normal"
+                            fullWidth
+                            label={field.label}
+                            name={field.field_key}
+                            value={currentUser?.customFields?.[field.field_key] || ''}
+                            onChange={handleCustomFieldChange}
+                        />
+                    ))}
+                    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                         <Button onClick={handleCloseModal} sx={{ mr: 1 }}>Cancel</Button>
                         <Button type="submit" variant="contained">Save</Button>
                     </Box>
@@ -197,7 +201,7 @@ const ManageUsers = () => {
             <ManageFieldsModal 
                 open={fieldsModalOpen} 
                 onClose={() => setFieldsModalOpen(false)} 
-                userFields={userFields}
+                userFields={userFields.map(f => f.field_key)}
                 onAddField={handleAddField}
                 onDeleteField={handleDeleteField}
             />
@@ -206,15 +210,11 @@ const ManageUsers = () => {
                 <DialogTitle>Delete User</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        To delete "{userToDelete?.name}", you must reassign their created templates and other assets to another user.
+                        To delete "{userToDelete?.name}", you must reassign their assets to another user.
                     </DialogContentText>
-                    <FormControl fullWidth margin="normal">
+                    <FormControl fullWidth margin="normal" required>
                         <InputLabel>Reassign Assets To</InputLabel>
-                        <Select
-                            value={newOwnerId}
-                            label="Reassign Assets To"
-                            onChange={(e) => setNewOwnerId(e.target.value)}
-                        >
+                        <Select value={newOwnerId} label="Reassign Assets To" onChange={(e) => setNewOwnerId(e.target.value)}>
                             {users.filter(u => u.id !== userToDelete?.id).map(user => (
                                 <MenuItem key={user.id} value={user.id}>{user.name}</MenuItem>
                             ))}
@@ -223,9 +223,7 @@ const ManageUsers = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDialog}>Cancel</Button>
-                    <Button onClick={handleDeleteUser} color="error" disabled={!newOwnerId}>
-                        Delete User
-                    </Button>
+                    <Button onClick={handleDeleteUser} color="error" disabled={!newOwnerId}>Delete User</Button>
                 </DialogActions>
             </Dialog>
         </Container>
